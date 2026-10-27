@@ -671,31 +671,32 @@ function renderCompare({ n, b, merged }) {
   const vb = b.vm ?? {};
   const rho = merged.length > 3 ? correlation(priceReturns(merged, 'nPrice'), priceReturns(merged, 'bPrice')) : null;
   const annVol = (o) => (isNum(o.stats?.returns?.sd) ? o.stats.returns.sd * Math.sqrt(252) : undefined);
-  const cr = (label, get, f) => `<tr><td>${esc(label)}</td><td>${shownOr(get(n), f)}</td><td>${shownOr(get(b), f)}</td></tr>`;
-  const csec = (t) => `<tr class="sec"><td colspan="3">${esc(t)}</td></tr>`;
+  const span2 = (v) => `<td colspan="2" style="text-align:center">${v}</td>`;
+  const crIdx = (label, get, f) => `<tr><td>${esc(label)}</td>${span2(shownOr(get(n), f))}${span2(shownOr(get(b), f))}</tr>`;
+  const four = (label, get, f) => `<tr><td>${esc(label)}</td>${[[n, 'dca'], [n, 'vm'], [b, 'dca'], [b, 'vm']].map(([o, p]) => `<td>${shownOr(get(o, p), f)}</td>`).join('')}</tr>`;
+  const csec = (t) => `<tr class="sec"><td colspan="5">${esc(t)}</td></tr>`;
   const ddCell = (o, p) => {
     const plan = o[p];
     if (!isNum(plan?.maxDrawdown)) return '-';
     const e = deepest(plan);
     return pct(plan.maxDrawdown, 2) + (e ? `<span class="sub">${txt(e.peakDate)} to ${txt(e.troughDate)}</span>` : '');
   };
-  const planRows = (p, title, countLabel, countGet) => csec(title)
-    + cr('Ending equity (INR)', (o) => o[p]?.endingEquity, inr)
-    + cr('Total contributions (INR)', (o) => o[p]?.totalContributions, inr)
-    + cr('TWR CAGR', (o) => o[p]?.twrCagr, (x) => pct(x, 2))
-    + cr('Annualized volatility', (o) => o[p]?.annVol, (x) => pct(x, 2))
-    + cr('Sharpe (risk-free=0)', (o) => o[p]?.sharpe, fx2)
-    + `<tr><td>Maximum drawdown</td><td>${ddCell(n, p)}</td><td>${ddCell(b, p)}</td></tr>`
-    + cr(countLabel, countGet, String);
   const ratio = isNum(annVol(n)) && isNum(annVol(b)) && annVol(n) > 0 ? annVol(b) / annVol(n) : null;
-  $('cmpTable').innerHTML = '<tr><th></th><th>Nifty 50</th><th>Bank Nifty</th></tr>'
+  $('cmpTable').innerHTML = '<tr><th rowspan="2"></th><th colspan="2" style="text-align:center">Nifty 50</th><th colspan="2" style="text-align:center">Bank Nifty</th></tr>'
+    + '<tr>' + ['Plain DCA', 'Volatility-managed', 'Plain DCA', 'Volatility-managed'].map((h) => `<th style="text-align:right">${h}</th>`).join('') + '</tr>'
     + csec('The index')
-    + cr('Index change over the period', (o) => o.period?.indexChange, (x) => pct(x, 2))
-    + cr('Index own biggest fall', (o) => ownMaxFall(o.series), (x) => pct(x, 2))
-    + cr('Index volatility over the period (per year)', annVol, (x) => pct(x, 2))
-    + (isNum(rho) ? `<tr><td>Correlation of daily index returns</td><td colspan="2" style="text-align:center">${fx2(rho)}</td></tr>` : '')
-    + planRows('dca', 'Plain monthly DCA (no volatility rule: all of each ₹ goes into the index)', 'Purchases', (o) => o.dca?.investments?.purchases)
-    + planRows('vm', 'Volatility-managed (the volatility rule sets how much is in the index)', 'Trades', (o) => o.vm?.investments?.trades);
+    + crIdx('Index change over the period', (o) => o.period?.indexChange, (x) => pct(x, 2))
+    + crIdx('Index own biggest fall', (o) => ownMaxFall(o.series), (x) => pct(x, 2))
+    + crIdx('Index volatility over the period (per year)', annVol, (x) => pct(x, 2))
+    + (isNum(rho) ? `<tr><td>Correlation of daily index returns (Nifty 50 with Bank Nifty)</td><td colspan="4" style="text-align:center">${fx2(rho)}</td></tr>` : '')
+    + csec('Plain DCA invests every rupee at once; volatility-managed lets the rule set how much is in the index')
+    + four('Ending equity (INR)', (o, p) => o[p]?.endingEquity, inr)
+    + four('Total contributions (INR)', (o, p) => o[p]?.totalContributions, inr)
+    + four('TWR CAGR', (o, p) => o[p]?.twrCagr, (x) => pct(x, 2))
+    + four('Annualized volatility', (o, p) => o[p]?.annVol, (x) => pct(x, 2))
+    + four('Sharpe (risk-free=0)', (o, p) => o[p]?.sharpe, fx2)
+    + `<tr><td>Maximum drawdown</td>${[[n, 'dca'], [n, 'vm'], [b, 'dca'], [b, 'vm']].map(([o, p]) => `<td>${ddCell(o, p)}</td>`).join('')}</tr>`
+    + four('Purchases (DCA) or trades (volatility-managed)', (o, p) => (p === 'dca' ? o.dca?.investments?.purchases : o.vm?.investments?.trades), String);
   const parts = [];
   if (isNum(vn.endingEquity) && isNum(vb.endingEquity) && isNum(dn.endingEquity) && isNum(db.endingEquity)) {
     parts.push(`From ${txt(n.period?.from)} to ${txt(n.period?.to)}, the volatility-managed plan ended at ${bold(inr(vn.endingEquity))} on Nifty 50 and ${bold(inr(vb.endingEquity))} on Bank Nifty. The monthly DCA ended at ${bold(inr(dn.endingEquity))} and ${bold(inr(db.endingEquity))}.`);
