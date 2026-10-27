@@ -8,6 +8,11 @@ function liveChart(root, rows, opts) {
     note.className = 'audit note';
     root.after(note);
   }
+  note.textContent = 'Chart audit running...';
+  (document.fonts?.ready ?? Promise.resolve()).then(() => audit(root, note));
+}
+
+function audit(root, note) {
   const { checks, fails } = auditCharts(root);
   note.textContent = fails.length
     ? `Chart audit: ${fails.length} of ${checks} checks failed. ${fails.slice(0, 3).join(' | ')}`

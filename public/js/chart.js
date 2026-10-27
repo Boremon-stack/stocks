@@ -136,7 +136,13 @@ export function liveChart(root, series, { baseline = null, panels = SIP_VOL_PANE
       const k = document.createElement('i');
       k.style.background = l.color;
       legend.appendChild(k);
-      legend.appendChild(document.createTextNode(l.label));
+      let tag = l.label;
+      if (p.markers && !l.dash) {
+        const vals = series.map((d) => d[l.key]);
+        const at = p.markers === 'min' ? vals.indexOf(Math.min(...vals)) : n - 1;
+        tag += ` ${p.markers === 'min' ? 'deepest' : 'ends at'} ${p.markFmt(vals[at])} on ${fmtDay(ts[at])}`;
+      }
+      legend.appendChild(document.createTextNode(tag));
     }
     head.appendChild(legend);
     box.appendChild(head);
@@ -196,12 +202,7 @@ export function liveChart(root, series, { baseline = null, panels = SIP_VOL_PANE
         const px = x(at);
         const py = y(vals[at]);
         el('circle', { cx: px, cy: py, r: 4, fill: l.color, stroke: 'var(--card)', 'stroke-width': 2 }, svg);
-        const right = px < PAD.l + plotW * 0.7;
-        const note = el('text', { x: right ? px + 8 : px - 8, y: p.markers === 'min'
-          ? (py + 14 + li * 14 > p.height - PAD.b - 4 ? py - 8 - li * 14 : py + 14 + li * 14)
-          : py + (li === 0 ? -9 : 16 + (li - 1) * 14), 'text-anchor': right ? 'start' : 'end', class: 'lc-axis', style: `fill:${l.color};font-weight:600` }, svg);
-        note.textContent = `${p.markFmt(vals[at])} · ${fmtDay(ts[at])}`;
-        notes.push(note);
+
       }
       if (!reduce && !l.dash) {
         const len = path.getTotalLength();
@@ -387,8 +388,8 @@ export function auditCharts(root) {
       p.lines.filter((l) => !l.dash).forEach((l) => {
         const m = Math.min(...series.map((d) => d[l.key]));
         const at = series.findIndex((d) => d[l.key] === m);
-        const tag = `${p.markFmt(m)} · ${fmt(ts[at])}`;
-        ok(texts.some((x) => x.s === tag), `${name} / ${l.label}: marker "${tag}" missing`);
+        const tag = `${p.markFmt(m)} on ${fmt(ts[at])}`;
+        ok((svg.parentNode.querySelector('.lc-legend')?.textContent || '').includes(tag), `${name} / ${l.label}: legend lacks "${tag}"`);
       });
     }
   });
