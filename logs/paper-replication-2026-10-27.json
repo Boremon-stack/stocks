@@ -1,54 +1,2252 @@
 {
-  "paper": {
-    "alphaAnnual": 0.0486,
-    "beta": 0.6,
-    "appraisalAnnual": 0.34,
-    "utilityGain": 0.65
+  "stamp": "2026-10-27",
+  "published": {
+    "source": "Moreira and Muir (2017), printed pages: Table I p.42, Table II p.43, Table IV p.45, Table V p.46"
   },
-  "results": [
+  "samples": [
     {
-      "label": "Paper sample, 1926-07 to 2015-12",
-      "months": 1073,
+      "id": "A",
+      "label": "Sample A, every month to December 2015",
       "from": "192608",
       "to": "201512",
-      "c": 0.0009279406768558353,
-      "sdOriginal": 0.05388382871139559,
-      "sdManaged": 0.05388382871139557,
       "n": 1073,
-      "alphaAnnual": 0.0487646876492505,
-      "beta": 0.6014440413796467,
-      "tAlpha": 3.068734140644522,
-      "r2": 0.36173493491108255,
-      "rmse": 0.04306868792770324,
-      "appraisalAnnual": 0.3268535320660766,
-      "sharpeOriginal": 0.41539970376969343,
-      "sharpeCombined": 0.5285736895798152,
-      "utilityGain": 0.6191188113793349,
-      "sharpeManaged": 0.5110897233861492,
-      "sharpeIncrease": 0.23035649459564467,
-      "maxWeight": 16.849719848102822
+      "rows": [
+        {
+          "table": "I and II",
+          "quantity": "Alpha (% per year)",
+          "paper": 4.86,
+          "dec": 2,
+          "engine": 4.88,
+          "paperText": "4.86",
+          "engineText": "4.88",
+          "diffText": "+0.02",
+          "verdict": "differs"
+        },
+        {
+          "table": "I and II",
+          "quantity": "Alpha robust s.e. (% per year)",
+          "paper": 1.56,
+          "dec": 2,
+          "engine": 1.56,
+          "paperText": "1.56",
+          "engineText": "1.56",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "I",
+          "quantity": "Beta",
+          "paper": 0.61,
+          "dec": 2,
+          "engine": 0.6,
+          "paperText": "0.61",
+          "engineText": "0.60",
+          "diffText": "-0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "I",
+          "quantity": "Beta robust s.e.",
+          "paper": 0.05,
+          "dec": 2,
+          "engine": 0.05,
+          "paperText": "0.05",
+          "engineText": "0.05",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "I and II",
+          "quantity": "Observations (N)",
+          "paper": 1065,
+          "dec": 0,
+          "engine": 1073,
+          "paperText": "1065",
+          "engineText": "1073",
+          "diffText": "+8",
+          "verdict": "differs"
+        },
+        {
+          "table": "I and II",
+          "quantity": "R-squared",
+          "paper": 0.37,
+          "dec": 2,
+          "engine": 0.36,
+          "paperText": "0.37",
+          "engineText": "0.36",
+          "diffText": "-0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "I and II",
+          "quantity": "RMSE (% per year)",
+          "paper": 51.39,
+          "dec": 2,
+          "engine": 51.68,
+          "paperText": "51.39",
+          "engineText": "51.68",
+          "diffText": "+0.29",
+          "verdict": "differs"
+        },
+        {
+          "table": "II",
+          "quantity": "Original Sharpe ratio",
+          "paper": 0.42,
+          "dec": 2,
+          "engine": 0.42,
+          "paperText": "0.42",
+          "engineText": "0.42",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "II",
+          "quantity": "Vol-managed Sharpe ratio",
+          "paper": 0.51,
+          "dec": 2,
+          "engine": 0.51,
+          "paperText": "0.51",
+          "engineText": "0.51",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "II",
+          "quantity": "Appraisal ratio",
+          "paper": 0.33,
+          "dec": 2,
+          "engine": 0.33,
+          "paperText": "0.33",
+          "engineText": "0.33",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: |dw| (avg absolute weight change)",
+          "paper": 0.73,
+          "dec": 2,
+          "engine": 0.75,
+          "paperText": "0.73",
+          "engineText": "0.75",
+          "diffText": "+0.02",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: E[R] (% per year)",
+          "paper": 9.47,
+          "dec": 2,
+          "engine": 9.54,
+          "paperText": "9.47",
+          "engineText": "9.54",
+          "diffText": "+0.07",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: alpha (% per year)",
+          "paper": 4.86,
+          "dec": 2,
+          "engine": 4.88,
+          "paperText": "4.86",
+          "engineText": "4.88",
+          "diffText": "+0.02",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: alpha after 1bp cost (% per year)",
+          "paper": 4.77,
+          "dec": 2,
+          "engine": 4.79,
+          "paperText": "4.77",
+          "engineText": "4.79",
+          "diffText": "+0.02",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: alpha after 10bp cost (% per year)",
+          "paper": 3.98,
+          "dec": 2,
+          "engine": 3.98,
+          "paperText": "3.98",
+          "engineText": "3.98",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: alpha after 14bp cost (% per year)",
+          "paper": 3.63,
+          "dec": 2,
+          "engine": 3.62,
+          "paperText": "3.63",
+          "engineText": "3.62",
+          "diffText": "-0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: break-even cost (bp)",
+          "paper": 56,
+          "dec": 0,
+          "engine": 54,
+          "paperText": "56",
+          "engineText": "54",
+          "diffText": "-2",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: |dw| (avg absolute weight change)",
+          "paper": 0.38,
+          "dec": 2,
+          "engine": 0.39,
+          "paperText": "0.38",
+          "engineText": "0.39",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: E[R] (% per year)",
+          "paper": 9.84,
+          "dec": 2,
+          "engine": 9.93,
+          "paperText": "9.84",
+          "engineText": "9.93",
+          "diffText": "+0.09",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: alpha (% per year)",
+          "paper": 3.85,
+          "dec": 2,
+          "engine": 3.38,
+          "paperText": "3.85",
+          "engineText": "3.38",
+          "diffText": "-0.47",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: alpha after 1bp cost (% per year)",
+          "paper": 3.8,
+          "dec": 2,
+          "engine": 3.34,
+          "paperText": "3.80",
+          "engineText": "3.34",
+          "diffText": "-0.46",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: alpha after 10bp cost (% per year)",
+          "paper": 3.39,
+          "dec": 2,
+          "engine": 2.92,
+          "paperText": "3.39",
+          "engineText": "2.92",
+          "diffText": "-0.47",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: alpha after 14bp cost (% per year)",
+          "paper": 3.21,
+          "dec": 2,
+          "engine": 2.73,
+          "paperText": "3.21",
+          "engineText": "2.73",
+          "diffText": "-0.48",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: break-even cost (bp)",
+          "paper": 84,
+          "dec": 0,
+          "engine": 73,
+          "paperText": "84",
+          "engineText": "73",
+          "diffText": "-11",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: |dw| (avg absolute weight change)",
+          "paper": 0.16,
+          "dec": 2,
+          "engine": 0.16,
+          "paperText": "0.16",
+          "engineText": "0.16",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: E[R] (% per year)",
+          "paper": 5.61,
+          "dec": 2,
+          "engine": 5.46,
+          "paperText": "5.61",
+          "engineText": "5.46",
+          "diffText": "-0.15",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: alpha (% per year)",
+          "paper": 2.12,
+          "dec": 2,
+          "engine": 2.05,
+          "paperText": "2.12",
+          "engineText": "2.05",
+          "diffText": "-0.07",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: alpha after 1bp cost (% per year)",
+          "paper": 2.1,
+          "dec": 2,
+          "engine": 2.03,
+          "paperText": "2.10",
+          "engineText": "2.03",
+          "diffText": "-0.07",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: alpha after 10bp cost (% per year)",
+          "paper": 1.93,
+          "dec": 2,
+          "engine": 1.85,
+          "paperText": "1.93",
+          "engineText": "1.85",
+          "diffText": "-0.08",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: alpha after 14bp cost (% per year)",
+          "paper": 1.85,
+          "dec": 2,
+          "engine": 1.77,
+          "paperText": "1.85",
+          "engineText": "1.77",
+          "diffText": "-0.08",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: break-even cost (bp)",
+          "paper": 110,
+          "dec": 0,
+          "engine": 104,
+          "paperText": "110",
+          "engineText": "104",
+          "diffText": "-6",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: |dw| (avg absolute weight change)",
+          "paper": 0.16,
+          "dec": 2,
+          "engine": 0.29,
+          "paperText": "0.16",
+          "engineText": "0.29",
+          "diffText": "+0.13",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: E[R] (% per year)",
+          "paper": 7.18,
+          "dec": 2,
+          "engine": 7.07,
+          "paperText": "7.18",
+          "engineText": "7.07",
+          "diffText": "-0.11",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: alpha (% per year)",
+          "paper": 3.1,
+          "dec": 2,
+          "engine": 3.11,
+          "paperText": "3.10",
+          "engineText": "3.11",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: alpha after 1bp cost (% per year)",
+          "paper": 3.08,
+          "dec": 2,
+          "engine": 3.07,
+          "paperText": "3.08",
+          "engineText": "3.07",
+          "diffText": "-0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: alpha after 10bp cost (% per year)",
+          "paper": 2.91,
+          "dec": 2,
+          "engine": 2.76,
+          "paperText": "2.91",
+          "engineText": "2.76",
+          "diffText": "-0.15",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: alpha after 14bp cost (% per year)",
+          "paper": 2.83,
+          "dec": 2,
+          "engine": 2.62,
+          "paperText": "2.83",
+          "engineText": "2.62",
+          "diffText": "-0.21",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: break-even cost (bp)",
+          "paper": 161,
+          "dec": 0,
+          "engine": 90,
+          "paperText": "161",
+          "engineText": "90",
+          "diffText": "-71",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "Expected Variance (not implemented in this engine)",
+          "paper": null,
+          "dec": 0,
+          "engine": null,
+          "paperText": "-",
+          "engineText": "not implemented",
+          "diffText": "-",
+          "verdict": "not implemented"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: weight P50",
+          "paper": 0.93,
+          "dec": 2,
+          "engine": 0.94,
+          "paperText": "0.93",
+          "engineText": "0.94",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: weight P75",
+          "paper": 1.59,
+          "dec": 2,
+          "engine": 1.62,
+          "paperText": "1.59",
+          "engineText": "1.62",
+          "diffText": "+0.03",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: weight P90",
+          "paper": 2.64,
+          "dec": 2,
+          "engine": 2.71,
+          "paperText": "2.64",
+          "engineText": "2.71",
+          "diffText": "+0.07",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: weight P99",
+          "paper": 6.39,
+          "dec": 2,
+          "engine": 7.27,
+          "paperText": "6.39",
+          "engineText": "7.27",
+          "diffText": "+0.88",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: alpha (% per year)",
+          "paper": 4.86,
+          "dec": 2,
+          "engine": 4.88,
+          "paperText": "4.86",
+          "engineText": "4.88",
+          "diffText": "+0.02",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: alpha s.e. (% per year)",
+          "paper": 1.56,
+          "dec": 2,
+          "engine": 1.56,
+          "paperText": "1.56",
+          "engineText": "1.56",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: Sharpe ratio",
+          "paper": 0.52,
+          "dec": 2,
+          "engine": 0.51,
+          "paperText": "0.52",
+          "engineText": "0.51",
+          "diffText": "-0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: appraisal ratio",
+          "paper": 0.34,
+          "dec": 2,
+          "engine": 0.33,
+          "paperText": "0.34",
+          "engineText": "0.33",
+          "diffText": "-0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: weight P50",
+          "paper": 1.23,
+          "dec": 2,
+          "engine": 1.24,
+          "paperText": "1.23",
+          "engineText": "1.24",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: weight P75",
+          "paper": 1.61,
+          "dec": 2,
+          "engine": 1.64,
+          "paperText": "1.61",
+          "engineText": "1.64",
+          "diffText": "+0.03",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: weight P90",
+          "paper": 2.08,
+          "dec": 2,
+          "engine": 2.12,
+          "paperText": "2.08",
+          "engineText": "2.12",
+          "diffText": "+0.04",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: weight P99",
+          "paper": 3.36,
+          "dec": 2,
+          "engine": 3.47,
+          "paperText": "3.36",
+          "engineText": "3.47",
+          "diffText": "+0.11",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: alpha (% per year)",
+          "paper": 3.3,
+          "dec": 2,
+          "engine": 3.38,
+          "paperText": "3.30",
+          "engineText": "3.38",
+          "diffText": "+0.08",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: alpha s.e. (% per year)",
+          "paper": 1.02,
+          "dec": 2,
+          "engine": 1.02,
+          "paperText": "1.02",
+          "engineText": "1.02",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: Sharpe ratio",
+          "paper": 0.53,
+          "dec": 2,
+          "engine": 0.53,
+          "paperText": "0.53",
+          "engineText": "0.53",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: appraisal ratio",
+          "paper": 0.33,
+          "dec": 2,
+          "engine": 0.34,
+          "paperText": "0.33",
+          "engineText": "0.34",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: weight P50",
+          "paper": 0.93,
+          "dec": 2,
+          "engine": 0.94,
+          "paperText": "0.93",
+          "engineText": "0.94",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: weight P75",
+          "paper": 1,
+          "dec": 2,
+          "engine": 1,
+          "paperText": "1.00",
+          "engineText": "1.00",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: weight P90",
+          "paper": 1,
+          "dec": 2,
+          "engine": 1,
+          "paperText": "1.00",
+          "engineText": "1.00",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: weight P99",
+          "paper": 1,
+          "dec": 2,
+          "engine": 1,
+          "paperText": "1.00",
+          "engineText": "1.00",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: alpha (% per year)",
+          "paper": 2.12,
+          "dec": 2,
+          "engine": 2.05,
+          "paperText": "2.12",
+          "engineText": "2.05",
+          "diffText": "-0.07",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: alpha s.e. (% per year)",
+          "paper": 0.71,
+          "dec": 2,
+          "engine": 0.71,
+          "paperText": "0.71",
+          "engineText": "0.71",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: Sharpe ratio",
+          "paper": 0.52,
+          "dec": 2,
+          "engine": 0.51,
+          "paperText": "0.52",
+          "engineText": "0.51",
+          "diffText": "-0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: appraisal ratio",
+          "paper": 0.3,
+          "dec": 2,
+          "engine": 0.3,
+          "paperText": "0.30",
+          "engineText": "0.30",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: weight P50",
+          "paper": 0.93,
+          "dec": 2,
+          "engine": 0.94,
+          "paperText": "0.93",
+          "engineText": "0.94",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: weight P75",
+          "paper": 1.5,
+          "dec": 2,
+          "engine": 1.5,
+          "paperText": "1.50",
+          "engineText": "1.50",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: weight P90",
+          "paper": 1.5,
+          "dec": 2,
+          "engine": 1.5,
+          "paperText": "1.50",
+          "engineText": "1.50",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: weight P99",
+          "paper": 1.5,
+          "dec": 2,
+          "engine": 1.5,
+          "paperText": "1.50",
+          "engineText": "1.50",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: alpha (% per year)",
+          "paper": 3.1,
+          "dec": 2,
+          "engine": 3.11,
+          "paperText": "3.10",
+          "engineText": "3.11",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: alpha s.e. (% per year)",
+          "paper": 0.98,
+          "dec": 2,
+          "engine": 0.96,
+          "paperText": "0.98",
+          "engineText": "0.96",
+          "diffText": "-0.02",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: Sharpe ratio",
+          "paper": 0.53,
+          "dec": 2,
+          "engine": 0.53,
+          "paperText": "0.53",
+          "engineText": "0.53",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: appraisal ratio",
+          "paper": 0.33,
+          "dec": 2,
+          "engine": 0.34,
+          "paperText": "0.33",
+          "engineText": "0.34",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "Expected Variance (not implemented in this engine)",
+          "paper": null,
+          "dec": 0,
+          "engine": null,
+          "paperText": "-",
+          "engineText": "not implemented",
+          "diffText": "-",
+          "verdict": "not implemented"
+        }
+      ],
+      "study": {
+        "n": 1073,
+        "from": "192608",
+        "to": "201512",
+        "rf": 0,
+        "persistence": {
+          "rv": {
+            "n": 1073,
+            "corr": 0.6093081918267479,
+            "slope": 0.6092645093387294,
+            "tSlope": 25.14750995994446,
+            "r2": 0.37125647262718076
+          },
+          "logRv": {
+            "n": 1073,
+            "corr": 0.72750118165422,
+            "slope": 0.7274896288878593,
+            "tSlope": 34.70059729189253,
+            "r2": 0.529257969308287
+          }
+        },
+        "predictability": {
+          "n": 1073,
+          "corr": -0.030674108032009432,
+          "slope": -0.3475137275340402,
+          "tSlope": -1.0043176345601157,
+          "r2": 0.0009409009035618032
+        },
+        "predictabilityTrimmed": {
+          "trimmedShare": 0.05,
+          "dropped": 53,
+          "n": 1020,
+          "corr": 0.052695584502317094,
+          "slope": 1.5927149066395951,
+          "tSlope": 1.6836504611758807,
+          "r2": 0.002776824626041563
+        },
+        "quintiles": [
+          {
+            "group": 1,
+            "n": 215,
+            "avgLagRv": 0.00033346046951210074,
+            "avgRv": 0.000653407201518624,
+            "avgExcess": 0.005853488372093025,
+            "meanVarianceRatio": 8.95840810828006
+          },
+          {
+            "group": 2,
+            "n": 215,
+            "avgLagRv": 0.0006577880531942647,
+            "avgRv": 0.0010000315745250247,
+            "avgExcess": 0.007795348837209303,
+            "meanVarianceRatio": 7.7951027105436985
+          },
+          {
+            "group": 3,
+            "n": 215,
+            "avgLagRv": 0.0010217864189747917,
+            "avgRv": 0.0012831183728448752,
+            "avgExcess": 0.0032311627906976745,
+            "meanVarianceRatio": 2.5182109921266878
+          },
+          {
+            "group": 4,
+            "n": 214,
+            "avgLagRv": 0.0018289917196726816,
+            "avgRv": 0.002319148173873556,
+            "avgExcess": 0.008263551401869155,
+            "meanVarianceRatio": 3.563183885774303
+          },
+          {
+            "group": 5,
+            "n": 214,
+            "avgLagRv": 0.008106699102256604,
+            "avgRv": 0.006699252657552148,
+            "avgExcess": 0.0071757009345794435,
+            "meanVarianceRatio": 1.0711196160798906
+          }
+        ],
+        "paper": {
+          "n": 1073,
+          "alphaAnnual": 0.0487646876492505,
+          "beta": 0.6014440413796467,
+          "tAlpha": 3.068734140644522,
+          "tAlphaRobust": 3.1308632779968835,
+          "tBetaRobust": 11.370900797424268,
+          "r2": 0.36173493491108255,
+          "rmse": 0.04306868792770324,
+          "appraisalAnnual": 0.3268535320660766,
+          "sharpeOriginal": 0.41539970376969343,
+          "sharpeCombined": 0.5285736895798152,
+          "utilityGain": 0.6191188113793349,
+          "c": 0.0009279406768558353,
+          "sdOriginal": 0.05388382871139559,
+          "sdManaged": 0.05388382871139557,
+          "sharpeManaged": 0.5110897233861492,
+          "sharpeIncrease": 0.23035649459564467,
+          "maxWeight": 16.849719848102822,
+          "meanWeight": 1.283042517311452,
+          "weights": {
+            "p50": 0.9350470343166422,
+            "p75": 1.6182294685447616,
+            "p90": 2.707539911008099,
+            "p99": 7.271560129845947,
+            "max": 16.849719848102822,
+            "mean": 1.283042517311452
+          },
+          "avgAbsWeightChange": 0.7500170756653463,
+          "expectedReturnAnnual": 0.0953995263559796,
+          "alphaAfterCost": {
+            "1": 0.047864667158452084,
+            "10": 0.039764482741266344,
+            "14": 0.03616440077807269
+          },
+          "breakEvenBp": 54.1817526909759
+        },
+        "variants": [
+          {
+            "key": "variance",
+            "label": "Realized variance",
+            "cap": null,
+            "alphaAnnual": 0.0487646876492505,
+            "tAlpha": 3.068734140644522,
+            "tAlphaRobust": 3.1308632779968835,
+            "appraisalAnnual": 0.3268535320660766,
+            "sharpeManaged": 0.5110897233861492,
+            "expectedReturnAnnual": 0.0953995263559796,
+            "avgAbsWeightChange": 0.7500170756653463,
+            "breakEvenBp": 54.1817526909759,
+            "alphaAfterCost": {
+              "1": 0.047864667158452084,
+              "10": 0.039764482741266344,
+              "14": 0.03616440077807269
+            },
+            "weights": {
+              "p50": 0.9350470343166422,
+              "p75": 1.6182294685447616,
+              "p90": 2.707539911008099,
+              "p99": 7.271560129845947,
+              "max": 16.849719848102822,
+              "mean": 1.283042517311452
+            }
+          },
+          {
+            "key": "volatility",
+            "label": "Realized volatility",
+            "cap": null,
+            "alphaAnnual": 0.033842572304075676,
+            "tAlpha": 3.169813341592316,
+            "tAlphaRobust": 3.3133413334762274,
+            "appraisalAnnual": 0.33761956533387355,
+            "sharpeManaged": 0.5317928721342479,
+            "expectedReturnAnnual": 0.09926395660036119,
+            "avgAbsWeightChange": 0.38815770119042803,
+            "breakEvenBp": 72.65640614687666,
+            "alphaAfterCost": {
+              "1": 0.033376783062647165,
+              "10": 0.029184679889790538,
+              "14": 0.027321522924076483
+            },
+            "weights": {
+              "p50": 1.243313414014648,
+              "p75": 1.6356257663811284,
+              "p90": 2.1156864885637523,
+              "p99": 3.4671816360294083,
+              "max": 5.277888764863382,
+              "mean": 1.303665208390212
+            }
+          },
+          {
+            "key": "variance_cap1_5",
+            "label": "Variance, cap 1.5 (50% leverage)",
+            "cap": 1.5,
+            "alphaAnnual": 0.031085046265620385,
+            "tAlpha": 3.1768408502793144,
+            "tAlphaRobust": 3.2527143852221267,
+            "appraisalAnnual": 0.33836807137274727,
+            "sharpeManaged": 0.5340398885212887,
+            "expectedReturnAnnual": 0.07070204862966697,
+            "avgAbsWeightChange": 0.28875695962350323,
+            "breakEvenBp": 89.7093710057261,
+            "alphaAfterCost": {
+              "1": 0.030738537914072182,
+              "10": 0.027619962750138345,
+              "14": 0.02623392934394553
+            },
+            "weights": {
+              "p50": 0.9350470343166422,
+              "p75": 1.5,
+              "p90": 1.5,
+              "p99": 1.5,
+              "max": 1.5,
+              "mean": 0.9037414271648069
+            }
+          },
+          {
+            "key": "variance_cap1",
+            "label": "Variance, no leverage",
+            "cap": 1,
+            "alphaAnnual": 0.020452396616585405,
+            "tAlpha": 2.795540870504929,
+            "tAlphaRobust": 2.860770497700683,
+            "appraisalAnnual": 0.29775548016932496,
+            "sharpeManaged": 0.509782079041678,
+            "expectedReturnAnnual": 0.054594123286163684,
+            "avgAbsWeightChange": 0.16316748724728936,
+            "breakEvenBp": 104.45502431084134,
+            "alphaAfterCost": {
+              "1": 0.020256595631888658,
+              "10": 0.018494386769617933,
+              "14": 0.017711182830830945
+            },
+            "weights": {
+              "p50": 0.9350470343166422,
+              "p75": 1,
+              "p90": 1,
+              "p99": 1,
+              "max": 1,
+              "mean": 0.7234707445308923
+            }
+          }
+        ],
+        "costs": [
+          {
+            "cap": null,
+            "cost": 0,
+            "alphaAnnual": 0.0487646876492505,
+            "tAlpha": 3.068734140644522,
+            "appraisalAnnual": 0.3268535320660766,
+            "avgTurnover": 0.7500170756653463
+          },
+          {
+            "cap": null,
+            "cost": 0.0001,
+            "alphaAnnual": 0.04786348540541518,
+            "tAlpha": 3.0133900799986435,
+            "appraisalAnnual": 0.3209587882166842,
+            "avgTurnover": 0.7500170756653463
+          },
+          {
+            "cap": null,
+            "cost": 0.001,
+            "alphaAnnual": 0.03975266521089597,
+            "tAlpha": 2.512295918998814,
+            "appraisalAnnual": 0.26758681498146547,
+            "avgTurnover": 0.7500170756653463
+          },
+          {
+            "cap": null,
+            "cost": 0.002,
+            "alphaAnnual": 0.030740642772541384,
+            "tAlpha": 1.9498179015002233,
+            "appraisalAnnual": 0.207676794007695,
+            "avgTurnover": 0.7500170756653463
+          },
+          {
+            "cap": 1.5,
+            "cost": 0,
+            "alphaAnnual": 0.031085046265620385,
+            "tAlpha": 3.1768408502793144,
+            "appraisalAnnual": 0.33836807137274727,
+            "avgTurnover": 0.28875695962350323
+          },
+          {
+            "cap": 1.5,
+            "cost": 0.0001,
+            "alphaAnnual": 0.030738358796285885,
+            "tAlpha": 3.1414194215561606,
+            "appraisalAnnual": 0.33459530431037865,
+            "avgTurnover": 0.28875695962350323
+          },
+          {
+            "cap": 1.5,
+            "cost": 0.001,
+            "alphaAnnual": 0.02761817157227362,
+            "tAlpha": 2.822455936227157,
+            "appraisalAnnual": 0.3006222271385665,
+            "avgTurnover": 0.28875695962350323
+          },
+          {
+            "cap": 1.5,
+            "cost": 0.002,
+            "alphaAnnual": 0.02415129687892676,
+            "tAlpha": 2.467777304377218,
+            "appraisalAnnual": 0.26284509876726747,
+            "avgTurnover": 0.28875695962350323
+          },
+          {
+            "cap": 1,
+            "cost": 0,
+            "alphaAnnual": 0.020452396616585405,
+            "tAlpha": 2.795540870504929,
+            "appraisalAnnual": 0.29775548016932496,
+            "avgTurnover": 0.16316748724728936
+          },
+          {
+            "cap": 1,
+            "cost": 0.0001,
+            "alphaAnnual": 0.02025688091002139,
+            "tAlpha": 2.768843584423862,
+            "appraisalAnnual": 0.2949119290983474,
+            "avgTurnover": 0.16316748724728936
+          },
+          {
+            "cap": 1,
+            "cost": 0.001,
+            "alphaAnnual": 0.018497239550945174,
+            "tAlpha": 2.5284280352182,
+            "appraisalAnnual": 0.26930506065683024,
+            "avgTurnover": 0.16316748724728936
+          },
+          {
+            "cap": 1,
+            "cost": 0.002,
+            "alphaAnnual": 0.01654208248530497,
+            "tAlpha": 2.2610561848371113,
+            "appraisalAnnual": 0.2408270532222251,
+            "avgTurnover": 0.16316748724728936
+          }
+        ]
+      }
     },
     {
-      "label": "All available months",
-      "months": 1202,
+      "id": "B",
+      "label": "Sample B, every month to April 2015",
       "from": "192608",
-      "to": "202609",
-      "c": 0.0009282921901876938,
-      "sdOriginal": 0.05301436758545797,
-      "sdManaged": 0.05301436758545797,
-      "n": 1202,
-      "alphaAnnual": 0.04510965346013224,
-      "beta": 0.600959681828857,
-      "tAlpha": 3.048542727315475,
-      "r2": 0.36115253918384393,
-      "rmse": 0.042390940510395,
-      "appraisalAnnual": 0.3071891099216308,
-      "sharpeOriginal": 0.45238671672477615,
-      "sharpeCombined": 0.5468261979125237,
-      "utilityGain": 0.4610966238734863,
-      "sharpeManaged": 0.517498368716868,
-      "sharpeIncrease": 0.14392918621371598,
-      "maxWeight": 16.856102692731163
+      "to": "201504",
+      "n": 1065,
+      "rows": [
+        {
+          "table": "I and II",
+          "quantity": "Alpha (% per year)",
+          "paper": 4.86,
+          "dec": 2,
+          "engine": 4.93,
+          "paperText": "4.86",
+          "engineText": "4.93",
+          "diffText": "+0.07",
+          "verdict": "differs"
+        },
+        {
+          "table": "I and II",
+          "quantity": "Alpha robust s.e. (% per year)",
+          "paper": 1.56,
+          "dec": 2,
+          "engine": 1.57,
+          "paperText": "1.56",
+          "engineText": "1.57",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "I",
+          "quantity": "Beta",
+          "paper": 0.61,
+          "dec": 2,
+          "engine": 0.6,
+          "paperText": "0.61",
+          "engineText": "0.60",
+          "diffText": "-0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "I",
+          "quantity": "Beta robust s.e.",
+          "paper": 0.05,
+          "dec": 2,
+          "engine": 0.05,
+          "paperText": "0.05",
+          "engineText": "0.05",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "I and II",
+          "quantity": "Observations (N)",
+          "paper": 1065,
+          "dec": 0,
+          "engine": 1065,
+          "paperText": "1065",
+          "engineText": "1065",
+          "diffText": "+0",
+          "verdict": "matches"
+        },
+        {
+          "table": "I and II",
+          "quantity": "R-squared",
+          "paper": 0.37,
+          "dec": 2,
+          "engine": 0.36,
+          "paperText": "0.37",
+          "engineText": "0.36",
+          "diffText": "-0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "I and II",
+          "quantity": "RMSE (% per year)",
+          "paper": 51.39,
+          "dec": 2,
+          "engine": 51.79,
+          "paperText": "51.39",
+          "engineText": "51.79",
+          "diffText": "+0.40",
+          "verdict": "differs"
+        },
+        {
+          "table": "II",
+          "quantity": "Original Sharpe ratio",
+          "paper": 0.42,
+          "dec": 2,
+          "engine": 0.42,
+          "paperText": "0.42",
+          "engineText": "0.42",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "II",
+          "quantity": "Vol-managed Sharpe ratio",
+          "paper": 0.51,
+          "dec": 2,
+          "engine": 0.52,
+          "paperText": "0.51",
+          "engineText": "0.52",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "II",
+          "quantity": "Appraisal ratio",
+          "paper": 0.33,
+          "dec": 2,
+          "engine": 0.33,
+          "paperText": "0.33",
+          "engineText": "0.33",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: |dw| (avg absolute weight change)",
+          "paper": 0.73,
+          "dec": 2,
+          "engine": 0.75,
+          "paperText": "0.73",
+          "engineText": "0.75",
+          "diffText": "+0.02",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: E[R] (% per year)",
+          "paper": 9.47,
+          "dec": 2,
+          "engine": 9.64,
+          "paperText": "9.47",
+          "engineText": "9.64",
+          "diffText": "+0.17",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: alpha (% per year)",
+          "paper": 4.86,
+          "dec": 2,
+          "engine": 4.93,
+          "paperText": "4.86",
+          "engineText": "4.93",
+          "diffText": "+0.07",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: alpha after 1bp cost (% per year)",
+          "paper": 4.77,
+          "dec": 2,
+          "engine": 4.84,
+          "paperText": "4.77",
+          "engineText": "4.84",
+          "diffText": "+0.07",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: alpha after 10bp cost (% per year)",
+          "paper": 3.98,
+          "dec": 2,
+          "engine": 4.03,
+          "paperText": "3.98",
+          "engineText": "4.03",
+          "diffText": "+0.05",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: alpha after 14bp cost (% per year)",
+          "paper": 3.63,
+          "dec": 2,
+          "engine": 3.67,
+          "paperText": "3.63",
+          "engineText": "3.67",
+          "diffText": "+0.04",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Variance: break-even cost (bp)",
+          "paper": 56,
+          "dec": 0,
+          "engine": 55,
+          "paperText": "56",
+          "engineText": "55",
+          "diffText": "-1",
+          "verdict": "matches"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: |dw| (avg absolute weight change)",
+          "paper": 0.38,
+          "dec": 2,
+          "engine": 0.39,
+          "paperText": "0.38",
+          "engineText": "0.39",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: E[R] (% per year)",
+          "paper": 9.84,
+          "dec": 2,
+          "engine": 10.04,
+          "paperText": "9.84",
+          "engineText": "10.04",
+          "diffText": "+0.20",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: alpha (% per year)",
+          "paper": 3.85,
+          "dec": 2,
+          "engine": 3.44,
+          "paperText": "3.85",
+          "engineText": "3.44",
+          "diffText": "-0.41",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: alpha after 1bp cost (% per year)",
+          "paper": 3.8,
+          "dec": 2,
+          "engine": 3.39,
+          "paperText": "3.80",
+          "engineText": "3.39",
+          "diffText": "-0.41",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: alpha after 10bp cost (% per year)",
+          "paper": 3.39,
+          "dec": 2,
+          "engine": 2.97,
+          "paperText": "3.39",
+          "engineText": "2.97",
+          "diffText": "-0.42",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: alpha after 14bp cost (% per year)",
+          "paper": 3.21,
+          "dec": 2,
+          "engine": 2.78,
+          "paperText": "3.21",
+          "engineText": "2.78",
+          "diffText": "-0.43",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV Realized Volatility: break-even cost (bp)",
+          "paper": 84,
+          "dec": 0,
+          "engine": 74,
+          "paperText": "84",
+          "engineText": "74",
+          "diffText": "-10",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: |dw| (avg absolute weight change)",
+          "paper": 0.16,
+          "dec": 2,
+          "engine": 0.16,
+          "paperText": "0.16",
+          "engineText": "0.16",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: E[R] (% per year)",
+          "paper": 5.61,
+          "dec": 2,
+          "engine": 5.54,
+          "paperText": "5.61",
+          "engineText": "5.54",
+          "diffText": "-0.07",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: alpha (% per year)",
+          "paper": 2.12,
+          "dec": 2,
+          "engine": 2.1,
+          "paperText": "2.12",
+          "engineText": "2.10",
+          "diffText": "-0.02",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: alpha after 1bp cost (% per year)",
+          "paper": 2.1,
+          "dec": 2,
+          "engine": 2.08,
+          "paperText": "2.10",
+          "engineText": "2.08",
+          "diffText": "-0.02",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: alpha after 10bp cost (% per year)",
+          "paper": 1.93,
+          "dec": 2,
+          "engine": 1.9,
+          "paperText": "1.93",
+          "engineText": "1.90",
+          "diffText": "-0.03",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: alpha after 14bp cost (% per year)",
+          "paper": 1.85,
+          "dec": 2,
+          "engine": 1.82,
+          "paperText": "1.85",
+          "engineText": "1.82",
+          "diffText": "-0.03",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV No Leverage: break-even cost (bp)",
+          "paper": 110,
+          "dec": 0,
+          "engine": 107,
+          "paperText": "110",
+          "engineText": "107",
+          "diffText": "-3",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: |dw| (avg absolute weight change)",
+          "paper": 0.16,
+          "dec": 2,
+          "engine": 0.29,
+          "paperText": "0.16",
+          "engineText": "0.29",
+          "diffText": "+0.13",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: E[R] (% per year)",
+          "paper": 7.18,
+          "dec": 2,
+          "engine": 7.16,
+          "paperText": "7.18",
+          "engineText": "7.16",
+          "diffText": "-0.02",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: alpha (% per year)",
+          "paper": 3.1,
+          "dec": 2,
+          "engine": 3.16,
+          "paperText": "3.10",
+          "engineText": "3.16",
+          "diffText": "+0.06",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: alpha after 1bp cost (% per year)",
+          "paper": 3.08,
+          "dec": 2,
+          "engine": 3.13,
+          "paperText": "3.08",
+          "engineText": "3.13",
+          "diffText": "+0.05",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: alpha after 10bp cost (% per year)",
+          "paper": 2.91,
+          "dec": 2,
+          "engine": 2.81,
+          "paperText": "2.91",
+          "engineText": "2.81",
+          "diffText": "-0.10",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: alpha after 14bp cost (% per year)",
+          "paper": 2.83,
+          "dec": 2,
+          "engine": 2.68,
+          "paperText": "2.83",
+          "engineText": "2.68",
+          "diffText": "-0.15",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "IV 50% Leverage: break-even cost (bp)",
+          "paper": 161,
+          "dec": 0,
+          "engine": 91,
+          "paperText": "161",
+          "engineText": "91",
+          "diffText": "-70",
+          "verdict": "differs"
+        },
+        {
+          "table": "IV",
+          "quantity": "Expected Variance (not implemented in this engine)",
+          "paper": null,
+          "dec": 0,
+          "engine": null,
+          "paperText": "-",
+          "engineText": "not implemented",
+          "diffText": "-",
+          "verdict": "not implemented"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: weight P50",
+          "paper": 0.93,
+          "dec": 2,
+          "engine": 0.94,
+          "paperText": "0.93",
+          "engineText": "0.94",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: weight P75",
+          "paper": 1.59,
+          "dec": 2,
+          "engine": 1.62,
+          "paperText": "1.59",
+          "engineText": "1.62",
+          "diffText": "+0.03",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: weight P90",
+          "paper": 2.64,
+          "dec": 2,
+          "engine": 2.71,
+          "paperText": "2.64",
+          "engineText": "2.71",
+          "diffText": "+0.07",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: weight P99",
+          "paper": 6.39,
+          "dec": 2,
+          "engine": 7.27,
+          "paperText": "6.39",
+          "engineText": "7.27",
+          "diffText": "+0.88",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: alpha (% per year)",
+          "paper": 4.86,
+          "dec": 2,
+          "engine": 4.93,
+          "paperText": "4.86",
+          "engineText": "4.93",
+          "diffText": "+0.07",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: alpha s.e. (% per year)",
+          "paper": 1.56,
+          "dec": 2,
+          "engine": 1.57,
+          "paperText": "1.56",
+          "engineText": "1.57",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: Sharpe ratio",
+          "paper": 0.52,
+          "dec": 2,
+          "engine": 0.52,
+          "paperText": "0.52",
+          "engineText": "0.52",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Variance: appraisal ratio",
+          "paper": 0.34,
+          "dec": 2,
+          "engine": 0.33,
+          "paperText": "0.34",
+          "engineText": "0.33",
+          "diffText": "-0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: weight P50",
+          "paper": 1.23,
+          "dec": 2,
+          "engine": 1.25,
+          "paperText": "1.23",
+          "engineText": "1.25",
+          "diffText": "+0.02",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: weight P75",
+          "paper": 1.61,
+          "dec": 2,
+          "engine": 1.64,
+          "paperText": "1.61",
+          "engineText": "1.64",
+          "diffText": "+0.03",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: weight P90",
+          "paper": 2.08,
+          "dec": 2,
+          "engine": 2.12,
+          "paperText": "2.08",
+          "engineText": "2.12",
+          "diffText": "+0.04",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: weight P99",
+          "paper": 3.36,
+          "dec": 2,
+          "engine": 3.47,
+          "paperText": "3.36",
+          "engineText": "3.47",
+          "diffText": "+0.11",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: alpha (% per year)",
+          "paper": 3.3,
+          "dec": 2,
+          "engine": 3.44,
+          "paperText": "3.30",
+          "engineText": "3.44",
+          "diffText": "+0.14",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: alpha s.e. (% per year)",
+          "paper": 1.02,
+          "dec": 2,
+          "engine": 1.03,
+          "paperText": "1.02",
+          "engineText": "1.03",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: Sharpe ratio",
+          "paper": 0.53,
+          "dec": 2,
+          "engine": 0.54,
+          "paperText": "0.53",
+          "engineText": "0.54",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V Realized Volatility: appraisal ratio",
+          "paper": 0.33,
+          "dec": 2,
+          "engine": 0.34,
+          "paperText": "0.33",
+          "engineText": "0.34",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: weight P50",
+          "paper": 0.93,
+          "dec": 2,
+          "engine": 0.94,
+          "paperText": "0.93",
+          "engineText": "0.94",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: weight P75",
+          "paper": 1,
+          "dec": 2,
+          "engine": 1,
+          "paperText": "1.00",
+          "engineText": "1.00",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: weight P90",
+          "paper": 1,
+          "dec": 2,
+          "engine": 1,
+          "paperText": "1.00",
+          "engineText": "1.00",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: weight P99",
+          "paper": 1,
+          "dec": 2,
+          "engine": 1,
+          "paperText": "1.00",
+          "engineText": "1.00",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: alpha (% per year)",
+          "paper": 2.12,
+          "dec": 2,
+          "engine": 2.1,
+          "paperText": "2.12",
+          "engineText": "2.10",
+          "diffText": "-0.02",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: alpha s.e. (% per year)",
+          "paper": 0.71,
+          "dec": 2,
+          "engine": 0.72,
+          "paperText": "0.71",
+          "engineText": "0.72",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: Sharpe ratio",
+          "paper": 0.52,
+          "dec": 2,
+          "engine": 0.52,
+          "paperText": "0.52",
+          "engineText": "0.52",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V No Leverage: appraisal ratio",
+          "paper": 0.3,
+          "dec": 2,
+          "engine": 0.3,
+          "paperText": "0.30",
+          "engineText": "0.30",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: weight P50",
+          "paper": 0.93,
+          "dec": 2,
+          "engine": 0.94,
+          "paperText": "0.93",
+          "engineText": "0.94",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: weight P75",
+          "paper": 1.5,
+          "dec": 2,
+          "engine": 1.5,
+          "paperText": "1.50",
+          "engineText": "1.50",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: weight P90",
+          "paper": 1.5,
+          "dec": 2,
+          "engine": 1.5,
+          "paperText": "1.50",
+          "engineText": "1.50",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: weight P99",
+          "paper": 1.5,
+          "dec": 2,
+          "engine": 1.5,
+          "paperText": "1.50",
+          "engineText": "1.50",
+          "diffText": "+0.00",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: alpha (% per year)",
+          "paper": 3.1,
+          "dec": 2,
+          "engine": 3.16,
+          "paperText": "3.10",
+          "engineText": "3.16",
+          "diffText": "+0.06",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: alpha s.e. (% per year)",
+          "paper": 0.98,
+          "dec": 2,
+          "engine": 0.96,
+          "paperText": "0.98",
+          "engineText": "0.96",
+          "diffText": "-0.02",
+          "verdict": "differs"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: Sharpe ratio",
+          "paper": 0.53,
+          "dec": 2,
+          "engine": 0.54,
+          "paperText": "0.53",
+          "engineText": "0.54",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "V 50% Leverage: appraisal ratio",
+          "paper": 0.33,
+          "dec": 2,
+          "engine": 0.34,
+          "paperText": "0.33",
+          "engineText": "0.34",
+          "diffText": "+0.01",
+          "verdict": "matches"
+        },
+        {
+          "table": "V",
+          "quantity": "Expected Variance (not implemented in this engine)",
+          "paper": null,
+          "dec": 0,
+          "engine": null,
+          "paperText": "-",
+          "engineText": "not implemented",
+          "diffText": "-",
+          "verdict": "not implemented"
+        }
+      ],
+      "study": {
+        "n": 1065,
+        "from": "192608",
+        "to": "201504",
+        "rf": 0,
+        "persistence": {
+          "rv": {
+            "n": 1065,
+            "corr": 0.6095592025487437,
+            "slope": 0.6095531263224849,
+            "tSlope": 25.069833590395376,
+            "r2": 0.37156242141186036
+          },
+          "logRv": {
+            "n": 1065,
+            "corr": 0.7282923018300577,
+            "slope": 0.7281847058537099,
+            "tSlope": 34.65076141981024,
+            "r2": 0.5304096769049242
+          }
+        },
+        "predictability": {
+          "n": 1065,
+          "corr": -0.031212776477703152,
+          "slope": -0.35308486761156516,
+          "tSlope": -1.0181474798820012,
+          "r2": 0.0009742374154444455
+        },
+        "predictabilityTrimmed": {
+          "trimmedShare": 0.05,
+          "dropped": 53,
+          "n": 1012,
+          "corr": 0.05216993364629839,
+          "slope": 1.5797609227846918,
+          "tSlope": 1.6602473169161531,
+          "r2": 0.0027217019766589967
+        },
+        "quintiles": [
+          {
+            "group": 1,
+            "n": 213,
+            "avgLagRv": 0.0003318084528162609,
+            "avgRv": 0.0006560601705469678,
+            "avgExcess": 0.0056887323943662,
+            "meanVarianceRatio": 8.671052823742391
+          },
+          {
+            "group": 2,
+            "n": 213,
+            "avgLagRv": 0.0006545612624594669,
+            "avgRv": 0.0009985407471350396,
+            "avgExcess": 0.00839906103286385,
+            "meanVarianceRatio": 8.411335297995592
+          },
+          {
+            "group": 3,
+            "n": 213,
+            "avgLagRv": 0.0010170706271545032,
+            "avgRv": 0.0012558677655700008,
+            "avgExcess": 0.003007511737089201,
+            "meanVarianceRatio": 2.3947678406445774
+          },
+          {
+            "group": 4,
+            "n": 213,
+            "avgLagRv": 0.001825069330648524,
+            "avgRv": 0.0023027450019372986,
+            "avgExcess": 0.00884929577464789,
+            "meanVarianceRatio": 3.842933441263787
+          },
+          {
+            "group": 5,
+            "n": 213,
+            "avgLagRv": 0.008112604143961812,
+            "avgRv": 0.0067285179155311126,
+            "avgExcess": 0.006675586854460098,
+            "meanVarianceRatio": 0.9921333253867339
+          }
+        ],
+        "paper": {
+          "n": 1065,
+          "alphaAnnual": 0.04931889532573632,
+          "beta": 0.6010569943989916,
+          "tAlpha": 3.085060757777301,
+          "tAlphaRobust": 3.1469412989240353,
+          "tBetaRobust": 11.327790479946831,
+          "r2": 0.3612695105159499,
+          "rmse": 0.04316097033989937,
+          "appraisalAnnual": 0.3298614149335553,
+          "sharpeOriginal": 0.41867678559800886,
+          "sharpeCombined": 0.5330091967880556,
+          "utilityGain": 0.6207336264635306,
+          "c": 0.0009268493263113968,
+          "sdOriginal": 0.053979417588155554,
+          "sdManaged": 0.05397941758815561,
+          "sharpeManaged": 0.5153998582100924,
+          "sharpeIncrease": 0.23102086368111152,
+          "maxWeight": 16.829902901407294,
+          "meanWeight": 1.285346597911853,
+          "weights": {
+            "p50": 0.9408591673412836,
+            "p75": 1.6220106512047126,
+            "p90": 2.70843321006035,
+            "p99": 7.268831203827721,
+            "max": 16.829902901407294,
+            "mean": 1.285346597911853
+          },
+          "avgAbsWeightChange": 0.7520419461516991,
+          "expectedReturnAnnual": 0.09637471620217156,
+          "alphaAfterCost": {
+            "1": 0.04841644499035428,
+            "10": 0.040294391971915935,
+            "14": 0.03668459063038778
+          },
+          "breakEvenBp": 54.64998282133487
+        },
+        "variants": [
+          {
+            "key": "variance",
+            "label": "Realized variance",
+            "cap": null,
+            "alphaAnnual": 0.04931889532573632,
+            "tAlpha": 3.085060757777301,
+            "tAlphaRobust": 3.1469412989240353,
+            "appraisalAnnual": 0.3298614149335553,
+            "sharpeManaged": 0.5153998582100924,
+            "expectedReturnAnnual": 0.09637471620217156,
+            "avgAbsWeightChange": 0.7520419461516991,
+            "breakEvenBp": 54.64998282133487,
+            "alphaAfterCost": {
+              "1": 0.04841644499035428,
+              "10": 0.040294391971915935,
+              "14": 0.03668459063038778
+            },
+            "weights": {
+              "p50": 0.9408591673412836,
+              "p75": 1.6220106512047126,
+              "p90": 2.70843321006035,
+              "p99": 7.268831203827721,
+              "max": 16.829902901407294,
+              "mean": 1.285346597911853
+            }
+          },
+          {
+            "key": "volatility",
+            "label": "Realized volatility",
+            "cap": null,
+            "alphaAnnual": 0.03437472904385344,
+            "tAlpha": 3.198274886617834,
+            "tAlphaRobust": 3.3424690590800745,
+            "appraisalAnnual": 0.3419665161493622,
+            "sharpeManaged": 0.5369348078036382,
+            "expectedReturnAnnual": 0.10040154046773027,
+            "avgAbsWeightChange": 0.3888302108621874,
+            "breakEvenBp": 73.67124965168244,
+            "alphaAfterCost": {
+              "1": 0.033908132790818814,
+              "10": 0.029708766513507193,
+              "14": 0.027842381501368696
+            },
+            "weights": {
+              "p50": 1.2475483075705185,
+              "p75": 1.6380302276639336,
+              "p90": 2.1166744494379746,
+              "p99": 3.467576893704462,
+              "max": 5.276377577929336,
+              "mean": 1.3049561482578584
+            }
+          },
+          {
+            "key": "variance_cap1_5",
+            "label": "Variance, cap 1.5 (50% leverage)",
+            "cap": 1.5,
+            "alphaAnnual": 0.03159712146952152,
+            "tAlpha": 3.2092728386284013,
+            "tAlphaRobust": 3.285006871770791,
+            "appraisalAnnual": 0.34314244112990966,
+            "sharpeManaged": 0.5396843469591329,
+            "expectedReturnAnnual": 0.07156392228698202,
+            "avgAbsWeightChange": 0.2882631780724886,
+            "breakEvenBp": 91.3433853536203,
+            "alphaAfterCost": {
+              "1": 0.03125120565583453,
+              "10": 0.028137963332651655,
+              "14": 0.02675430007790371
+            },
+            "weights": {
+              "p50": 0.9408591673412836,
+              "p75": 1.5,
+              "p90": 1.5,
+              "p99": 1.5,
+              "max": 1.5,
+              "mean": 0.9041344055166414
+            }
+          },
+          {
+            "key": "variance_cap1",
+            "label": "Variance, no leverage",
+            "cap": 1,
+            "alphaAnnual": 0.020968927917688156,
+            "tAlpha": 2.8487655688608293,
+            "tAlphaRobust": 2.914243335912011,
+            "appraisalAnnual": 0.30459621872583587,
+            "sharpeManaged": 0.5166589780476282,
+            "expectedReturnAnnual": 0.055403331328660925,
+            "avgAbsWeightChange": 0.16272376748483758,
+            "breakEvenBp": 107.38509111584872,
+            "alphaAfterCost": {
+              "1": 0.02077365939670635,
+              "10": 0.019016242707870105,
+              "14": 0.018235168623942886
+            },
+            "weights": {
+              "p50": 0.9408591673412836,
+              "p75": 1,
+              "p90": 1,
+              "p99": 1,
+              "max": 1,
+              "mean": 0.7234130358286196
+            }
+          }
+        ],
+        "costs": [
+          {
+            "cap": null,
+            "cost": 0,
+            "alphaAnnual": 0.04931889532573632,
+            "tAlpha": 3.085060757777301,
+            "appraisalAnnual": 0.3298614149335553,
+            "avgTurnover": 0.7520419461516991
+          },
+          {
+            "cap": null,
+            "cost": 0.0001,
+            "alphaAnnual": 0.048415198354131356,
+            "tAlpha": 3.0299014737753924,
+            "appraisalAnnual": 0.3239636641609902,
+            "avgTurnover": 0.7520419461516991
+          },
+          {
+            "cap": null,
+            "cost": 0.001,
+            "alphaAnnual": 0.040281925609686936,
+            "tAlpha": 2.5304821306236174,
+            "appraisalAnnual": 0.27056466034496124,
+            "avgTurnover": 0.7520419461516991
+          },
+          {
+            "cap": null,
+            "cost": 0.002,
+            "alphaAnnual": 0.031244955893637377,
+            "tAlpha": 1.9698878869582137,
+            "appraisalAnnual": 0.2106247029379944,
+            "avgTurnover": 0.7520419461516991
+          },
+          {
+            "cap": 1.5,
+            "cost": 0,
+            "alphaAnnual": 0.03159712146952152,
+            "tAlpha": 3.2092728386284013,
+            "appraisalAnnual": 0.34314244112990966,
+            "avgTurnover": 0.2882631780724886
+          },
+          {
+            "cap": 1.5,
+            "cost": 0.0001,
+            "alphaAnnual": 0.031251047534984075,
+            "tAlpha": 3.1741245429767266,
+            "appraisalAnnual": 0.3393843088121145,
+            "avgTurnover": 0.2882631780724886
+          },
+          {
+            "cap": 1.5,
+            "cost": 0.001,
+            "alphaAnnual": 0.028136382124146254,
+            "tAlpha": 2.857625567367646,
+            "appraisalAnnual": 0.30554354906168096,
+            "avgTurnover": 0.2882631780724886
+          },
+          {
+            "cap": 1.5,
+            "cost": 0.002,
+            "alphaAnnual": 0.024675642778770563,
+            "tAlpha": 2.505697645166341,
+            "appraisalAnnual": 0.2679146491836811,
+            "avgTurnover": 0.2882631780724886
+          },
+          {
+            "cap": 1,
+            "cost": 0,
+            "alphaAnnual": 0.020968927917688156,
+            "tAlpha": 2.8487655688608293,
+            "appraisalAnnual": 0.30459621872583587,
+            "avgTurnover": 0.16272376748483758
+          },
+          {
+            "cap": 1,
+            "cost": 0.0001,
+            "alphaAnnual": 0.02077398680893175,
+            "tAlpha": 2.822303006165592,
+            "appraisalAnnual": 0.30176678389171996,
+            "avgTurnover": 0.16272376748483758
+          },
+          {
+            "cap": 1,
+            "cost": 0.001,
+            "alphaAnnual": 0.019019516830123543,
+            "tAlpha": 2.584003205428549,
+            "appraisalAnnual": 0.2762872502224582,
+            "avgTurnover": 0.16272376748483758
+          },
+          {
+            "cap": 1,
+            "cost": 0.002,
+            "alphaAnnual": 0.017070105742558912,
+            "tAlpha": 2.318988311590291,
+            "appraisalAnnual": 0.24795128061810714,
+            "avgTurnover": 0.16272376748483758
+          }
+        ]
+      }
     }
   ]
 }

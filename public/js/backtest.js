@@ -193,8 +193,34 @@ export function ols(y, x) {
   return { n, alpha, beta, rmse, tAlpha: alpha / seAlpha, tBeta: beta / seBeta, r2: 1 - ssr / sst };
 }
 
+function robustTs(y, x, reg) {
+  const n = y.length;
+  let sx = 0;
+  let sxx = 0;
+  let m0 = 0;
+  let m1 = 0;
+  let m2 = 0;
+  for (let i = 0; i < n; i++) {
+    const e2 = (y[i] - reg.alpha - reg.beta * x[i]) ** 2;
+    sx += x[i];
+    sxx += x[i] * x[i];
+    m0 += e2;
+    m1 += e2 * x[i];
+    m2 += e2 * x[i] * x[i];
+  }
+  const det = n * sxx - sx * sx;
+  const a00 = sxx / det;
+  const a01 = -sx / det;
+  const a11 = n / det;
+  const k = n / (n - 2);
+  const varAlpha = k * (a00 * a00 * m0 + 2 * a00 * a01 * m1 + a01 * a01 * m2);
+  const varBeta = k * (a01 * a01 * m0 + 2 * a01 * a11 * m1 + a11 * a11 * m2);
+  return { tAlphaRobust: reg.alpha / Math.sqrt(varAlpha), tBetaRobust: reg.beta / Math.sqrt(varBeta) };
+}
+
 export function paperTest(managedExcess, originalExcess, periodsPerYear) {
   const reg = ols(managedExcess, originalExcess);
+  const robust = robustTs(managedExcess, originalExcess, reg);
   const srOld = mean(originalExcess) / sd(originalExcess);
   const appraisal = reg.alpha / reg.rmse;
   const srNew = Math.sqrt(srOld * srOld + appraisal * appraisal);
@@ -204,6 +230,8 @@ export function paperTest(managedExcess, originalExcess, periodsPerYear) {
     alphaAnnual: reg.alpha * periodsPerYear,
     beta: reg.beta,
     tAlpha: reg.tAlpha,
+    tAlphaRobust: robust.tAlphaRobust,
+    tBetaRobust: robust.tBetaRobust,
     r2: reg.r2,
     rmse: reg.rmse,
     appraisalAnnual: appraisal * k,
@@ -312,13 +340,16 @@ export function monthlyTable(rows) {
   });
 }
 
-export function volManage(excess, rv, { trainShare = 0.7, normalize = 'train', minExposure = 0, maxExposure = Infinity, cost = 0 } = {}) {
+export function volManage(excess, rv, { trainShare = 0.7, normalize = 'train', minExposure = 0, maxExposure = Infinity, cost = 0, scaling = 'variance' } = {}) {
   const start = 1;
   const n = excess.length - start;
   const split = start + Math.floor(n * trainShare);
   const lo = Math.min(minExposure, maxExposure);
   const raw = [];
-  for (let m = start; m < excess.length; m++) raw.push(rv[m - 1] > 0 ? 1 / rv[m - 1] : 0);
+  for (let m = start; m < excess.length; m++) {
+    const x = rv[m - 1];
+    raw.push(x > 0 ? (scaling === 'volatility' ? 1 / Math.sqrt(x) : 1 / x) : 0);
+  }
 
   const upto = normalize === 'full' ? excess.length : split;
   const f = excess.slice(start, upto);
@@ -504,166 +535,410 @@ function xirr(flows) {
   return (lo + hi) / 2;
 }
 
-function valueSummary(values, exposure, initial, costTotal, rfd, dates) {
-  const rets = [];
-  for (let i = 1; i < values.length; i++) rets.push(values[i] / values[i - 1] - 1);
-  let peak = initial;
-  let maxDd = 0;
-  let trough = 0;
-  let run = 0;
-  let longest = 0;
-  const dd = values.map((v, i) => {
-    peak = Math.max(peak, v);
-    const d = v / peak - 1;
-    if (d < maxDd) {
-      maxDd = d;
-      trough = i;
-    }
-    run = d < 0 ? run + 1 : 0;
-    longest = Math.max(longest, run);
-    return d;
+function drawdownOf(V, P0) {
+  let peak = P0;
+  return V.map((x) => {
+    peak = Math.max(peak, x);
+    return x / peak - 1;
   });
-  const final = values[values.length - 1];
-  const s = sd(rets);
+}
+
+function drawdownEpisodesOf(dd, dates) {
+  const out = [];
+  let k = 0;
+  while (k < dd.length) {
+    if (!(dd[k] < 0)) {
+      k++;
+      continue;
+    }
+    const start = k;
+    let trough = k;
+    while (k < dd.length && dd[k] < 0) {
+      if (dd[k] < dd[trough]) trough = k;
+      k++;
+    }
+    const end = k;
+    const recovered = end < dd.length;
+    const peak = Math.max(start - 1, 0);
+    out.push({
+      peakDate: dates[peak],
+      troughDate: dates[trough],
+      endDate: recovered ? dates[end] : null,
+      depth: dd[trough],
+      tradingDaysToTrough: trough - peak,
+      tradingDaysToRecover: recovered ? end - trough : null,
+      tradingDaysUnder: end - start,
+    });
+  }
+  return out;
+}
+
+function planMetrics(V, dd, share, P0, dates, fees, rfd, indexGain, interest) {
+  const L = V.length;
+  const rho = [];
+  for (let k = 1; k < L; k++) rho.push(V[k] / V[k - 1] - 1);
+  const final = V[L - 1];
+  const years = (Date.parse(dates[L - 1]) - Date.parse(dates[0])) / 86400000 / 365.25;
+  const meanDaily = mean(rho);
+  const sdDaily = sd(rho);
+  const cagr = (final / P0) ** (1 / years) - 1;
+  const maxDrawdown = dd.reduce((a, x) => Math.min(a, x), 0);
+  const episodes = drawdownEpisodesOf(dd, dates);
+  const longestUnderwaterDays = episodes.reduce((a, e) => Math.max(a, e.tradingDaysUnder), 0);
+  const deepest = [...episodes].sort((a, b) => a.depth - b.depth).slice(0, 3);
   return {
     final,
-    profit: final - initial,
-    returnPct: final / initial - 1,
-    maxDrawdown: maxDd,
-    troughDate: dates[trough],
-    longestUnderwaterDays: longest,
-    worstDay: Math.min(...rets),
-    bestDay: Math.max(...rets),
-    costTotal,
-    avgExposure: mean(exposure),
-    annVol: s * Math.sqrt(252),
-    sharpe: s === 0 ? 0 : ((mean(rets) - rfd) / s) * Math.sqrt(252),
-    rets,
-    dd,
+    profit: final - P0,
+    returnPct: final / P0 - 1,
+    cagr,
+    annVol: sdDaily * Math.sqrt(252),
+    sharpe: sdDaily === 0 ? 0 : ((meanDaily - rfd) / sdDaily) * Math.sqrt(252),
+    calmar: maxDrawdown === 0 ? null : cagr / Math.abs(maxDrawdown),
+    sharpeParts: { meanDaily, sdDaily, rfd, years, annReturnArithmetic: meanDaily * 252 },
+    maxDrawdown,
+    troughDate: deepest.length ? deepest[0].troughDate : null,
+    longestUnderwaterDays,
+    worstDay: rho.reduce((a, x) => Math.min(a, x), Infinity),
+    bestDay: rho.reduce((a, x) => Math.max(a, x), -Infinity),
+    avgExposure: mean(share),
+    costTotal: fees,
+    drawdownEpisodes: deepest,
+    components: { indexGain, interest, costs: fees },
   };
+}
+
+const percentileOf = (sorted, q) => {
+  const pos = (q / 100) * (sorted.length - 1);
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+};
+
+function distOf(xs) {
+  const s = [...xs].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return {
+    p50: percentileOf(s, 50),
+    p75: percentileOf(s, 75),
+    p90: percentileOf(s, 90),
+    p99: percentileOf(s, 99),
+    max: s[s.length - 1],
+    min: s[0],
+    mean: mean(xs),
+  };
+}
+
+function paperDist(xs) {
+  const d = distOf(xs);
+  return { p50: d.p50, p75: d.p75, p90: d.p90, p99: d.p99, max: d.max, mean: d.mean };
+}
+
+function avgAbsChange(ws) {
+  if (ws.length < 2) return null;
+  let total = 0;
+  for (let k = 1; k < ws.length; k++) total += Math.abs(ws[k] - ws[k - 1]);
+  return total / (ws.length - 1);
+}
+
+function alphaAfterCostOf(alpha, avgW) {
+  const at = (bp) => (avgW == null ? null : alpha - (bp / 10000) * avgW * 12);
+  return { '1': at(1), '10': at(10), '14': at(14) };
+}
+
+function breakEvenBpOf(alpha, avgW) {
+  return avgW == null || avgW === 0 || alpha <= 0 ? null : (alpha / (avgW * 12)) * 10000;
+}
+
+const VARIANT_SPECS = [
+  { key: 'variance', label: 'Realized variance', scaling: 'variance', cap: null },
+  { key: 'volatility', label: 'Realized volatility', scaling: 'volatility', cap: null },
+  { key: 'variance_cap1_5', label: 'Variance, cap 1.5 (50% leverage)', scaling: 'variance', cap: 1.5 },
+  { key: 'variance_cap1', label: 'Variance, no leverage', scaling: 'variance', cap: 1 },
+];
+
+function isResetDay(D, s0, rebalance, i) {
+  return i >= s0 && i <= D.length - 2 && (i === s0 || rebalance === 'daily' || D[i + 1].slice(0, 7) !== D[i].slice(0, 7));
+}
+
+function runLedger(P, D, s0, pool, cost, rfd, rebalance, shareAt) {
+  const last = P.length - 1;
+  let cash = pool;
+  let units = 0;
+  let fees = 0;
+  let interest = 0;
+  let indexGain = 0;
+  let resets = 0;
+  let totalBought = 0;
+  let totalSold = 0;
+  let buys = 0;
+  let sells = 0;
+  const tradeList = [];
+  const decisionDays = [];
+  const days = [];
+  for (let i = s0; i <= last; i++) {
+    const p = P[i];
+    if (i > s0) {
+      const iv = cash * rfd;
+      cash += iv;
+      interest += iv;
+      indexGain += units * (p - P[i - 1]);
+    }
+    let trade = 0;
+    let fee = 0;
+    if (isResetDay(D, s0, rebalance, i)) {
+      resets++;
+      decisionDays.push(i);
+      const V = cash + units * p;
+      const target = shareAt(i) * V;
+      const current = units * p;
+      const delta = target - current;
+      if (Math.abs(delta) >= 1e-9) {
+        let a;
+        let side;
+        if (delta > 0) {
+          a = Math.min(delta, cash / (1 + cost));
+          fee = cost * a;
+          units += a / p;
+          cash -= a + fee;
+          side = 'buy';
+          totalBought += a;
+          buys++;
+          trade = a;
+        } else {
+          a = -delta;
+          fee = cost * a;
+          units -= a / p;
+          cash += a - fee;
+          side = 'sell';
+          totalSold += a;
+          sells++;
+          trade = -a;
+        }
+        fees += fee;
+        tradeList.push({ date: D[i], side, amount: a, price: p, fee, units: a / p, shareAfter: (units * p) / (cash + units * p) });
+      }
+    }
+    const value = cash + units * p;
+    days.push({ value, inIndex: units * p, share: (units * p) / value, trade, fee });
+  }
+  const inV = days.map((d) => d.inIndex);
+  const shV = days.map((d) => d.share);
+  const investments = {
+    trades: tradeList.length,
+    buys,
+    sells,
+    totalBought,
+    totalSold,
+    netPutIn: totalBought - totalSold,
+    turnover: totalBought + totalSold,
+    fees,
+    averageInIndex: mean(inV),
+    peakInIndex: inV.reduce((a, x) => Math.max(a, x), -Infinity),
+    lowestInIndex: inV.reduce((a, x) => Math.min(a, x), Infinity),
+    finalIndexValue: units * P[last],
+    cashLeft: cash,
+    resets,
+    averageShare: mean(shV),
+  };
+  return { days, decisionDays, tradeList, investments, indexGain, interest, fees };
 }
 
 export function compareSipVsVol(
   rows,
-  { pool = 1000000, sip = 10000, window = WINDOW, minExposure = 0, maxExposure = 1, cost = 0.001, cashRate = 0.065, months = 60, rebalance = 'monthly', startDate = null } = {},
+  {
+    pool = 1000000,
+    sip = 10000,
+    window = WINDOW,
+    minExposure = 0,
+    maxExposure = 1,
+    cost = 0.001,
+    cashRate = 0,
+    months = 60,
+    rebalance = 'monthly',
+    startDate = null,
+    scaling = 'variance',
+    calibration = 'paper',
+  } = {},
 ) {
+  if (scaling !== 'variance' && scaling !== 'volatility') throw new Error(`unknown scaling: ${scaling}`);
+  if (calibration !== 'paper' && calibration !== 'average') throw new Error(`unknown calibration: ${calibration}`);
   const n = rows.length;
   const P = rows.map((d) => d.close);
-  const r = dailyReturns(P);
-  const v = rollingVariance(r.map((x, i) => (i === 0 ? NaN : x)), window).map((x, t) => (t >= window ? x : NaN));
+  const D = rows.map((d) => d.date);
+  const month = (i) => D[i].slice(0, 7);
+  const r = [NaN];
+  for (let i = 1; i < n; i++) r.push(P[i] / P[i - 1] - 1);
+  const v = new Array(n).fill(NaN);
+  for (let t = window; t < n; t++) {
+    let s = 0;
+    for (let i = t - window + 1; i <= t; i++) s += r[i] * r[i];
+    v[t] = s / window;
+  }
+  const cbar = new Array(n).fill(NaN);
+  let vSum = 0;
+  for (let t = window; t < n; t++) {
+    vSum += v[t];
+    cbar[t] = vSum / (t - window + 1);
+  }
   const rfd = cashRate / 252;
   const { s0, requested, moved } = startIndexFor(rows, months, window, startDate);
   const lo = Math.min(minExposure, maxExposure);
+  const hi = maxExposure;
+  const last = n - 1;
+  const rawOf = (t) => (scaling === 'volatility' ? 1 / Math.sqrt(v[t]) : 1 / v[t]);
 
-  const cbar = new Array(n).fill(NaN);
-  let sum = 0;
-  let cnt = 0;
-  for (let t = window; t < n; t++) {
-    sum += v[t];
-    cnt++;
-    cbar[t] = sum / cnt;
+  let c = NaN;
+  if (calibration === 'paper') {
+    const fs = [];
+    const gs = [];
+    let R = s0;
+    for (let s = s0 + 1; s < n; s++) {
+      if (isResetDay(D, s0, rebalance, s - 1)) R = s - 1;
+      if (!(v[R] > 0)) continue;
+      const f = r[s] - rfd;
+      fs.push(f);
+      gs.push(rawOf(R) * f);
+    }
+    c = sd(fs) / sd(gs);
   }
+  const uncapped = (t) => {
+    if (v[t] === 0) return Infinity;
+    if (calibration === 'paper') return c * rawOf(t);
+    const q = cbar[t] / v[t];
+    return scaling === 'volatility' ? Math.sqrt(q) : q;
+  };
+  const shareAt = (t) => clamp(uncapped(t), lo, hi);
 
-  const W = new Array(n).fill(0);
-  for (let t = s0; t < n - 1; t++) {
-    const resetNow = rebalance === 'daily' || t === s0 || rows[t + 1].date.slice(0, 7) !== rows[t].date.slice(0, 7);
-    W[t + 1] = resetNow ? clamp(cbar[t] / v[t], lo, maxExposure) : W[t];
-  }
+  const volLedger = runLedger(P, D, s0, pool, cost, rfd, rebalance, shareAt);
+  const ctlShare = clamp(volLedger.investments.averageShare, lo, hi);
+  const ctlLedger = runLedger(P, D, s0, pool, cost, rfd, rebalance, () => ctlShare);
 
-  const series = [];
-  let volValue = pool;
-  let volCost = 0;
-  let cash = pool;
-  let units = 0;
-  let sipCost = 0;
-  let purchases = 0;
+  let cashS = pool;
+  let unitsS = 0;
+  let feesS = 0;
+  let interestS = 0;
+  let indexGainS = 0;
+  let totalPutIn = 0;
+  const purchaseList = [];
   const flows = [];
-  const volVals = [];
-  const sipVals = [];
-  const volExp = [];
-  const sipExp = [];
-
+  const sipDays = [];
   for (let i = s0; i < n; i++) {
-    let volFee = 0;
+    const p = P[i];
     if (i > s0) {
-      const fee = cost * Math.abs(W[i] - W[i - 1]);
-      volFee = volValue * fee;
-      volValue *= 1 + W[i] * r[i] + (1 - W[i]) * rfd - fee;
-      volCost += volFee;
-      cash *= 1 + rfd;
-    } else {
-      volFee = pool * cost * W[s0 + 1];
-      volCost += volFee;
+      const isInt = cashS * rfd;
+      cashS += isInt;
+      interestS += isInt;
+      indexGainS += unitsS * (p - P[i - 1]);
     }
+    let sipBuy = 0;
     let sipFee = 0;
-    if (i === s0 || rows[i].date.slice(0, 7) !== rows[i - 1].date.slice(0, 7)) {
-      const a = Math.min(sip, cash);
+    if (i === s0 || month(i) !== month(i - 1)) {
+      const a = Math.min(sip, cashS / (1 + cost));
       sipFee = cost * a;
-      units += (a - sipFee) / P[i];
-      cash -= a;
-      sipCost += sipFee;
-      purchases++;
-      flows.push({ t: Date.parse(rows[i].date) / 86400000, amount: -a });
+      unitsS += a / p;
+      cashS -= a + sipFee;
+      feesS += sipFee;
+      totalPutIn += a;
+      sipBuy = a;
+      purchaseList.push({ date: D[i], amount: a, price: p, fee: sipFee, units: a / p });
+      flows.push({ t: Date.parse(D[i]) / 86400000, amount: -(a + sipFee) });
     }
-    const sipValue = cash + units * P[i];
-    const wHeld = i === s0 ? W[s0 + 1] : W[i];
-    volVals.push(i === s0 ? pool - volFee : volValue);
-    sipVals.push(sipValue);
-    volExp.push(wHeld);
-    sipExp.push((units * P[i]) / sipValue);
-    series.push({
-      date: rows[i].date,
+    const valS = cashS + unitsS * p;
+    sipDays.push({ value: valS, inIndex: unitsS * p, share: (unitsS * p) / valS, buy: sipBuy, fee: sipFee });
+  }
+
+  const dates = D.slice(s0);
+  const Vv = volLedger.days.map((d) => d.value);
+  const Vs = sipDays.map((d) => d.value);
+  const Vc = ctlLedger.days.map((d) => d.value);
+  const ddV = drawdownOf(Vv, pool);
+  const ddS = drawdownOf(Vs, pool);
+  const ddC = drawdownOf(Vc, pool);
+
+  const volMetrics = planMetrics(Vv, ddV, volLedger.days.map((d) => d.share), pool, dates, volLedger.fees, rfd, volLedger.indexGain, volLedger.interest);
+  const sipMetrics = planMetrics(Vs, ddS, sipDays.map((d) => d.share), pool, dates, feesS, rfd, indexGainS, interestS);
+  const ctlMetrics = planMetrics(Vc, ddC, ctlLedger.days.map((d) => d.share), pool, dates, ctlLedger.fees, rfd, ctlLedger.indexGain, ctlLedger.interest);
+
+  const sipFlows = [...flows, { t: Date.parse(D[last]) / 86400000, amount: unitsS * P[last] }];
+  const sipInvestments = {
+    purchases: purchaseList.length,
+    perPurchase: sip,
+    totalPutIn,
+    fees: feesS,
+    units: unitsS,
+    averageBuyPrice: totalPutIn / unitsS,
+    finalIndexValue: unitsS * P[last],
+    cashLeft: cashS,
+    moneyWeightedReturn: xirr(sipFlows),
+  };
+
+  const decided = volLedger.decisionDays.map(uncapped);
+  const capped = decided.map((x) => clamp(x, lo, hi));
+  const weights = {
+    count: decided.length,
+    uncapped: distOf(decided),
+    capped: distOf(capped),
+    shareAtCap: decided.filter((x) => x >= hi).length / decided.length,
+  };
+  const avgAbsWeightChange = avgAbsChange(capped);
+
+  const diff = (a, b) => (a == null || b == null ? null : a - b);
+  const timingEffect = {
+    finalDiff: volMetrics.final - ctlMetrics.final,
+    sharpeDiff: volMetrics.sharpe - ctlMetrics.sharpe,
+    maxDrawdownDiff: volMetrics.maxDrawdown - ctlMetrics.maxDrawdown,
+    calmarDiff: diff(volMetrics.calmar, ctlMetrics.calmar),
+  };
+
+  const series = Vv.map((value, k) => {
+    const i = s0 + k;
+    return {
+      date: D[i],
       close: P[i],
       vol: Math.sqrt(v[i] * 252),
-      volWeight: wHeld,
-      sipExposure: sipExp[sipExp.length - 1],
-      sipValue,
-      volValue: volVals[volVals.length - 1],
-      sipCost: sipFee,
-      volCost: volFee,
-    });
-  }
-  if (series.length) {
-    volValue = volVals[volVals.length - 1];
-  }
-
-  const last = n - 1;
-  flows.push({ t: Date.parse(rows[last].date) / 86400000, amount: units * P[last] });
-  const dates = series.map((d) => d.date);
-  const volSum = valueSummary(volVals, volExp, pool, volCost, rfd, dates);
-  const sipSum = valueSummary(sipVals, sipExp, pool, sipCost, rfd, dates);
-  sipSum.invested = flows.slice(0, -1).reduce((a, c) => a - c.amount, 0);
-  sipSum.purchases = purchases;
-  sipSum.moneyWeightedReturn = xirr(flows);
-
-  const bhEx = [];
-  const vEx = [];
-  for (let j = 0; j < volSum.rets.length; j++) {
-    bhEx.push(r[s0 + 1 + j] - rfd);
-    vEx.push(volSum.rets[j] - rfd);
-  }
-  const regression = bhEx.length > 30 ? paperTest(vEx, bhEx, 252) : null;
-  series.forEach((d, i) => {
-    d.volDd = volSum.dd[i];
-    d.sipDd = sipSum.dd[i];
+      volWeight: volLedger.days[k].share,
+      sipExposure: sipDays[k].share,
+      volInIndex: volLedger.days[k].inIndex,
+      sipInIndex: sipDays[k].inIndex,
+      sipValue: sipDays[k].value,
+      volValue: value,
+      sipCost: sipDays[k].fee,
+      volCost: volLedger.days[k].fee,
+      volTrade: volLedger.days[k].trade,
+      sipBuy: sipDays[k].buy,
+      ctlValue: Vc[k],
+      ctlInIndex: ctlLedger.days[k].inIndex,
+      volDd: ddV[k],
+      sipDd: ddS[k],
+      ctlDd: ddC[k],
+    };
   });
-  delete volSum.rets;
-  delete sipSum.rets;
-  delete volSum.dd;
-  delete sipSum.dd;
+
+  const rhoV = Vv.slice(1).map((x, k) => x / Vv[k] - 1);
+  const L = Vv.length;
+  const regression = L - 1 > 30
+    ? paperTest(
+        rhoV.map((x) => x - rfd),
+        Array.from({ length: L - 1 }, (_, j) => r[s0 + 1 + j] - rfd),
+        252,
+      )
+    : null;
 
   return {
-    params: { pool, sip, window, minExposure: lo, maxExposure, cost, cashRate, months, rebalance },
+    c: calibration === 'paper' ? c : null,
+    params: { pool, sip, window, minExposure: lo, maxExposure, cost, cashRate, months, rebalance, scaling, calibration },
     period: {
-      from: rows[s0].date,
-      to: rows[last].date,
+      from: D[s0],
+      to: D[last],
       days: n - s0,
       requested,
       moved,
       niftyChange: P[last] / P[s0] - 1,
     },
-    sip: sipSum,
-    vol: volSum,
+    sip: { ...sipMetrics, investments: sipInvestments, purchaseList },
+    vol: { ...volMetrics, investments: volLedger.investments, tradeList: volLedger.tradeList, weights, avgAbsWeightChange },
+    control: { share: ctlShare, ...ctlMetrics, investments: ctlLedger.investments, tradeList: ctlLedger.tradeList },
+    timingEffect,
     regression,
     series,
   };
@@ -714,12 +989,17 @@ export function quintilesByLaggedVariance(excess, rv, groups = 5) {
   return out;
 }
 
-export function paperStudy(rows, { rf = 0.065 } = {}) {
+export function paperStudy(rows, { rf = 0 } = {}) {
   const list = monthlyTable(rows);
   const rfm = rf / 12;
   const excess = list.map((m) => m.ret - rfm);
   const rv = list.map((m) => m.rv);
-  const m = list.length;
+  return paperStudyFromMonthly(excess, rv, { keys: list.map((m) => m.key), rf });
+}
+
+export function paperStudyFromMonthly(excess, rv, { keys = null, rf = 0 } = {}) {
+  const m = excess.length;
+  const keyAt = (t) => (keys ? keys[t] : String(t));
 
   const persistence = {
     rv: slopeStats(rv.slice(1), rv.slice(0, -1)),
@@ -744,6 +1024,8 @@ export function paperStudy(rows, { rf = 0.065 } = {}) {
   const original = excess.slice(1);
   const test = paperTest(managed, original, 12);
   const sharpeManaged = (mean(managed) / sd(managed)) * Math.sqrt(12);
+  const uncappedWeights = main.weight.slice(1);
+  const paperAvgW = avgAbsChange(uncappedWeights);
   const paper = {
     ...test,
     c: main.c,
@@ -753,7 +1035,35 @@ export function paperStudy(rows, { rf = 0.065 } = {}) {
     sharpeIncrease: sharpeManaged / test.sharpeOriginal - 1,
     maxWeight: Math.max(...main.weight),
     meanWeight: mean(main.weight.slice(1)),
+    weights: paperDist(uncappedWeights),
+    avgAbsWeightChange: paperAvgW,
+    expectedReturnAnnual: 12 * mean(managed),
+    alphaAfterCost: alphaAfterCostOf(test.alphaAnnual, paperAvgW),
+    breakEvenBp: breakEvenBpOf(test.alphaAnnual, paperAvgW),
   };
+
+  const variants = VARIANT_SPECS.map((spec) => {
+    const o = volManage(excess, rv, { normalize: 'full', cost: 0, scaling: spec.scaling, maxExposure: spec.cap ?? Infinity });
+    const mg = o.managed.slice(1);
+    const t = paperTest(mg, original, 12);
+    const ws = o.weight.slice(1);
+    const avgW = avgAbsChange(ws);
+    return {
+      key: spec.key,
+      label: spec.label,
+      cap: spec.cap,
+      alphaAnnual: t.alphaAnnual,
+      tAlpha: t.tAlpha,
+      tAlphaRobust: t.tAlphaRobust,
+      appraisalAnnual: t.appraisalAnnual,
+      sharpeManaged: (mean(mg) / sd(mg)) * Math.sqrt(12),
+      expectedReturnAnnual: 12 * mean(mg),
+      avgAbsWeightChange: avgW,
+      breakEvenBp: breakEvenBpOf(t.alphaAnnual, avgW),
+      alphaAfterCost: alphaAfterCostOf(t.alphaAnnual, avgW),
+      weights: paperDist(ws),
+    };
+  });
 
   const costs = [];
   for (const cap of [Infinity, 1.5, 1]) {
@@ -774,14 +1084,15 @@ export function paperStudy(rows, { rf = 0.065 } = {}) {
 
   return {
     n: m - 1,
-    from: list[1].key,
-    to: list[m - 1].key,
+    from: keyAt(1),
+    to: keyAt(m - 1),
     rf,
     persistence,
     predictability,
     predictabilityTrimmed,
     quintiles,
     paper,
+    variants,
     costs,
   };
 }

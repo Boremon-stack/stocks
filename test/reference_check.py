@@ -16,7 +16,7 @@ from statsmodels.stats.diagnostic import acorr_ljungbox
 
 path = sys.argv[1]
 out_path = sys.argv[2]
-rf = float(sys.argv[3]) if len(sys.argv) > 3 else 0.065
+rf = float(sys.argv[3]) if len(sys.argv) > 3 else 0.0
 cost = float(sys.argv[4]) if len(sys.argv) > 4 else 0.001
 
 df = pd.read_csv(path, parse_dates=["date"]).sort_values("date").reset_index(drop=True)

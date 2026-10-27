@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/serve.mjs",
-    "test": "node --test test/backtest.test.mjs",
+    "test": "node --test test/backtest.test.mjs test/compare_closed_form.test.mjs",
     "reference": "python test/reference_check.py public/data/nifty50.csv"
   }
 }

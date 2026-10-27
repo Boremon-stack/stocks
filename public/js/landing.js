@@ -109,7 +109,7 @@ async function load() {
     const res = await fetch('api/compare', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ csv, start: '2019-01-02', months: 240, pool: 1000000, sip: 10000, window: 20, rebalance: 'monthly', cost: 0.001, cashRate: 0.065, minExposure: 0, maxExposure: 1 }),
+      body: JSON.stringify({ csv, start: '2019-01-02', months: 240, pool: 1000000, sip: 10000, window: 20, rebalance: 'monthly', cost: 0.001, cashRate: 0, minExposure: 0, maxExposure: 1 }),
     });
     if (!res.ok) throw new Error(`compare ${res.status}`);
     const data = await res.json();

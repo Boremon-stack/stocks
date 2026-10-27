@@ -8,7 +8,7 @@ import { parseCsv, backtest, dailyReturns, describe, acf, ljungBox } from '../pu
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dataFile = `${root}local-data/nifty50.csv`;
 const stamp = new Date().toISOString().slice(0, 10);
-const opts = { cost: 0.001, rf: 0.065 };
+const opts = { cost: 0.001, rf: 0 };
 
 const rows = parseCsv(readFileSync(dataFile, 'utf8'));
 const r = dailyReturns(rows.map((d) => d.close)).slice(1);

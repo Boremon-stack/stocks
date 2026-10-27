@@ -223,56 +223,73 @@ const bank = bundled('banknifty');
 const SUMMARY = ['final', 'profit', 'returnPct', 'maxDrawdown', 'longestUnderwaterDays', 'worstDay', 'bestDay', 'costTotal', 'avgExposure', 'annVol', 'sharpe'];
 
 const CONFIGS = [
-  ['nifty', nifty5y, 60, 'monthly', null],
-  ['nifty', nifty5y, 60, 'daily', null],
-  ['nifty', nifty5y, 24, 'monthly', null],
-  ['nifty', nifty5y, 0, 'monthly', '2019-01-02'],
-  ['nifty', nifty5y, 0, 'daily', '2019-01-02'],
-  ['banknifty', bank, 0, 'monthly', '2019-01-02'],
+  ['nifty', nifty5y, 60, 'monthly', null, 'variance', 'paper'],
+  ['nifty', nifty5y, 60, 'daily', null, 'variance', 'paper'],
+  ['nifty', nifty5y, 24, 'monthly', null, 'variance', 'average'],
+  ['nifty', nifty5y, 24, 'monthly', null, 'variance', 'paper'],
+  ['nifty', nifty5y, 0, 'monthly', '2019-01-02', 'variance', 'paper'],
+  ['nifty', nifty5y, 0, 'daily', '2019-01-02', 'variance', 'paper'],
+  ['nifty', nifty5y, 0, 'monthly', '2019-01-02', 'volatility', 'paper'],
+  ['nifty', nifty5y, 0, 'monthly', '2019-01-02', 'variance', 'average'],
+  ['banknifty', bank, 0, 'monthly', '2019-01-02', 'variance', 'paper'],
 ];
-for (const [name, rows, months, rebalance, startDate] of CONFIGS) {
-  test(`SIP versus volatility plan matches the pandas reference (${name}, ${months || 'max'} months, ${rebalance} reset)`, () => {
-    const want = JSON.parse(readFileSync(new URL(`./reference_compare_${name}_${months}_${rebalance}.json`, import.meta.url), 'utf8'));
-    const got = compareSipVsVol(rows, { months: months || 120, rebalance, startDate });
-    assert.equal(got.period.from, want.from_);
-    assert.equal(got.period.to, want.to);
-    assert.equal(got.period.days, want.days);
-    close(got.period.niftyChange, want.niftyChange, 1e-12);
-    for (const who of ['sip', 'vol']) {
-      for (const k of SUMMARY) close(got[who][k], want[who][k], Math.max(1e-9, Math.abs(want[who][k]) * 1e-9));
-      assert.equal(got[who].troughDate, want[who].troughDate, who + ' trough');
+for (const [name, rows, months, rebalance, startDate, scaling, calibration] of CONFIGS) {
+  test(`SIP versus volatility plan matches the pandas reference (${name}, ${months || 'max'} months, ${rebalance} reset, ${scaling} scaling, ${calibration} calibration)`, () => {
+    const want = JSON.parse(readFileSync(new URL(`./reference_compare_${name}_${months}_${rebalance}_${scaling}_${calibration}.json`, import.meta.url), 'utf8'));
+    const got = compareSipVsVol(rows, { months: months || 120, rebalance, startDate, scaling, calibration });
+    const mismatches = [];
+    const near = (a, b) => (a === null || b === null ? a === b : Math.abs(a - b) <= Math.max(1e-7, Math.abs(b) * 1e-9));
+    const cmp = (label, a, b) => {
+      const ok = typeof b === 'number' || b === null ? (typeof a === 'number' || a === null) && near(a, b) : a === b;
+      if (!ok) mismatches.push(`${label}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`);
+    };
+    const walk = (label, a, b) => {
+      if (b && typeof b === 'object' && !Array.isArray(b)) { for (const k of Object.keys(b)) walk(`${label}.${k}`, a?.[k], b[k]); }
+      else if (Array.isArray(b)) { cmp(`${label}.length`, a?.length, b.length); b.forEach((x, i) => walk(`${label}[${i}]`, a?.[i], x)); }
+      else cmp(label, a, b);
+    };
+    cmp('period.from', got.period.from, want.from_);
+    cmp('period.to', got.period.to, want.to);
+    cmp('period.days', got.period.days, want.days);
+    cmp('period.niftyChange', got.period.niftyChange, want.niftyChange);
+    for (const who of ['sip', 'vol', 'control']) {
+      const fixture = { ...want[who] };
+      delete fixture.purchaseList;
+      delete fixture.tradeList;
+      walk(who, got[who], fixture);
     }
-    close(got.sip.invested, want.sip.invested, 1e-6);
-    assert.equal(got.sip.purchases, want.sip.purchases);
-    close(got.sip.moneyWeightedReturn, want.sip.moneyWeightedReturn, 1e-9);
-    for (const k of ['alphaAnnual', 'beta', 'appraisalAnnual', 'sharpeOriginal']) close(got.regression[k], want.regression[k], Math.max(1e-9, Math.abs(want.regression[k]) * 1e-9));
+    walk('sip.purchaseList', got.sip.purchaseList, want.sip.purchaseList);
+    walk('vol.tradeList', got.vol.tradeList, want.vol.tradeList);
+    walk('control.tradeList', got.control.tradeList, want.control.tradeList);
+    walk('timingEffect', got.timingEffect, want.timingEffect);
+    walk('regression', got.regression, want.regression);
     const w = got.series.map((d) => d.volWeight);
-    close(w[0], want.first_weight, 1e-12);
-    close(Math.min(...w), want.min_weight, 1e-12);
-    close(Math.max(...w), want.max_weight, 1e-12);
-    close(w.reduce((x, y) => x + y, 0) / w.length, want.mean_weight, 1e-12);
-    close(got.series.at(-1).sipValue, want.last_sip_value, 1e-6);
-    close(got.series.at(-1).volValue, want.last_vol_value, 1e-6);
+    cmp('mean_weight', w.reduce((a, b) => a + b, 0) / w.length, want.mean_weight);
+    cmp('min_weight', Math.min(...w), want.min_weight);
+    cmp('max_weight', Math.max(...w), want.max_weight);
+    cmp('last_sip_value', got.series.at(-1).sipValue, want.last_sip_value);
+    cmp('last_vol_value', got.series.at(-1).volValue, want.last_vol_value);
+    if (got.c !== undefined) cmp('c', got.c, want.c);
+    assert.deepEqual(mismatches, []);
   });
 }
 
 test('SIP makes one purchase a month of exactly the monthly amount and the pool never goes negative', () => {
   const got = compareSipVsVol(nifty5y, { months: 60, sip: 10000 });
-  assert.equal(got.sip.purchases, 60);
-  close(got.sip.invested, 600000, 1e-6);
+  assert.equal(got.sip.investments.purchases, 60);
+  close(got.sip.investments.totalPutIn, 600000, 1e-6);
   assert.ok(got.series.every((d) => d.sipValue > 0 && d.volValue > 0));
 });
 
-test('monthly reset changes the weight at most once per calendar month', () => {
+test('every volatility trade happens on the first day of the period or on the last trading day of a month', () => {
   const got = compareSipVsVol(nifty5y, { months: 60, rebalance: 'monthly' });
-  const changes = new Map();
-  for (let i = 1; i < got.series.length; i++) {
-    if (got.series[i].volWeight !== got.series[i - 1].volWeight) {
-      const key = got.series[i].date.slice(0, 7);
-      changes.set(key, (changes.get(key) ?? 0) + 1);
-    }
+  const monthEnds = new Set();
+  for (let i = 0; i + 1 < nifty5y.length; i++) {
+    if (nifty5y[i].date.slice(0, 7) !== nifty5y[i + 1].date.slice(0, 7)) monthEnds.add(nifty5y[i].date);
   }
-  assert.ok([...changes.values()].every((n) => n === 1));
+  const first = got.series[0].date;
+  assert.ok(got.vol.tradeList.length > 0);
+  for (const t of got.vol.tradeList) assert.ok(t.date === first || monthEnds.has(t.date), `trade on ${t.date}`);
 });
 
 test('the volatility plan holds less when the 20-day volatility is high', () => {
@@ -283,8 +300,36 @@ test('the volatility plan holds less when the 20-day volatility is high', () => 
   assert.ok(hi.reduce((a, b) => a + b, 0) / hi.length < lo.reduce((a, b) => a + b, 0) / lo.length);
 });
 
+for (const cashRate of [0.065, 0]) {
+  test(`profit equals index gain plus interest minus costs for both plans (cashRate ${cashRate})`, () => {
+    const got = compareSipVsVol(nifty5y, { months: 24, rebalance: 'monthly', cashRate });
+    for (const who of ['sip', 'vol']) {
+      const c = got[who].components;
+      assert.ok(Math.abs(c.indexGain + c.interest - c.costs - (got[who].final - 1000000)) < 1e-6, `${who} residual`);
+    }
+  });
+}
+
+test('the entry fee is charged once', () => {
+  const got = compareSipVsVol(nifty5y, { months: 24, rebalance: 'monthly', cashRate: 0, cost: 0.001 });
+  close(got.series[0].volCost, got.vol.tradeList[0].fee, 1e-9);
+  close(got.series.reduce((a, d) => a + d.volCost, 0), got.vol.costTotal, 1e-6);
+  close(got.series.reduce((a, d) => a + d.sipCost, 0), got.sip.costTotal, 1e-6);
+});
+
 import { paperStudy } from '../public/js/backtest.js';
 const relClose = (got, want, rel = 1e-9) => close(got, want, Math.max(1e-10, Math.abs(want) * rel));
+
+const deepCompare = (got, want, label, out) => {
+  if (Array.isArray(want)) {
+    if (!Array.isArray(got) || got.length !== want.length) { out.push(`${label}.length: got ${got?.length}, want ${want.length}`); return; }
+    want.forEach((x, i) => deepCompare(got[i], x, `${label}[${i}]`, out));
+  } else if (want && typeof want === 'object') {
+    for (const k of Object.keys(want)) deepCompare(got?.[k], want[k], `${label}.${k}`, out);
+  } else if (typeof want === 'number') {
+    if (typeof got !== 'number' || Math.abs(got - want) > Math.max(1e-9, Math.abs(want) * 1e-8)) out.push(`${label}: got ${JSON.stringify(got)}, want ${want}`);
+  } else if (got !== want) out.push(`${label}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+};
 
 for (const [name, rows] of [['nifty', nifty5y], ['banknifty', bank]]) {
   test(`paper statistics match the pandas and statsmodels reference (${name}, 2019 to 2026)`, () => {
@@ -308,6 +353,32 @@ for (const [name, rows] of [['nifty', nifty5y], ['banknifty', bank]]) {
       relClose(c.alphaAnnual, want.costs[i].alphaAnnual);
       relClose(c.appraisalAnnual, want.costs[i].appraisalAnnual);
     });
+    const mismatches = [];
+    for (const k of Object.keys(want)) {
+      if (k === 'rf') continue;
+      if (k === 'from_') { deepCompare(got.from, want.from_, 'from', mismatches); continue; }
+      deepCompare(got[k], want[k], k, mismatches);
+    }
+    assert.deepEqual(mismatches, []);
+  });
+}
+
+test('calibration average reproduces the ledger numbers verified earlier', () => {
+  const got = compareSipVsVol(nifty5y, { months: 24, rebalance: 'monthly', calibration: 'average' });
+  close(got.vol.final, 896389.4034568302, 1e-6);
+  close(got.sip.final, 984875.8986952304, 1e-6);
+});
+
+test('the control plan holds one constant share equal to the average volatility-plan share', () => {
+  const got = compareSipVsVol(nifty5y, { months: 24, rebalance: 'monthly' });
+  close(got.control.share, got.vol.investments.averageShare, 1e-12);
+});
+
+for (const [months, startDate] of [[24, null], [0, '2019-01-02']]) {
+  test(`identity for the control plan holds (months ${months || 120}${startDate ? ', from ' + startDate : ''})`, () => {
+    const got = compareSipVsVol(nifty5y, { months: months || 120, rebalance: 'monthly', startDate });
+    const c = got.control.components;
+    assert.ok(Math.abs(c.indexGain + c.interest - c.costs - (got.control.final - 1000000)) < 1e-6, `control residual ${c.indexGain + c.interest - c.costs - (got.control.final - 1000000)}`);
   });
 }
 

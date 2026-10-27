@@ -45,7 +45,7 @@
   <div class="container">
     <p class="eyebrow">Volatility-managed portfolios · NSE</p>
     <h1>Hold less when the market is shaking. Measure whether it helps.</h1>
-    <p class="lede" style="margin-top:22px">Volatility Lab back-tests a simple rule on real Nifty 50 and Bank Nifty prices, 2019 to 2026: put in Rs 10,000 every month, or hold more or less of a Rs 10 lakh pool in the index depending on how rough the last 20 trading days were. Based on Moreira and Muir, <em>Volatility-Managed Portfolios</em> (SSRN 2659431).</p>
+    <p class="lede" style="margin-top:22px">Volatility Lab back-tests a simple rule on real Nifty 50 and Bank Nifty prices, 2019 to 2026: put in Rs 10,000 every month, or hold a smaller or larger share of a Rs 10 lakh pool in the index, never more than all of it, depending on how rough the last 20 trading days were. Based on Moreira and Muir, <em>Volatility-Managed Portfolios</em> (SSRN 2659431).</p>
     <div class="hero-actions">
       <a class="btn" href="results.html">See the past results</a>
       <a class="btn ghost" href="#method">How it works</a>
@@ -57,7 +57,7 @@
   <div class="container">
     <p class="eyebrow">Method</p>
     <h2>How the rule works</h2>
-    <p class="muted" style="max-width:40em">The maths follows the paper. You can reproduce any number on the page from the same CSV.</p>
+    <p class="muted" style="max-width:40em">Adapted from the paper; the differences are listed on the results page. You can reproduce any number from the same data.</p>
     <div class="grid-3 steps" style="margin-top:28px">
       <div class="step">
         <h3>Measure the swings</h3>
@@ -66,8 +66,8 @@
       </div>
       <div class="step">
         <h3>Set the share of the pool</h3>
-        <p>Hold less when recent swings are larger than usual, more when they are calmer, never more than the cap you choose.</p>
-        <div class="formula">share = typical variance / v, between your least and most</div>
+        <p>The share is highest when swings are calm and drops when they are large, never above 100% of the pool.</p>
+        <div class="formula">share = c / v, between 0% and 100%</div>
       </div>
       <div class="step">
         <h3>Compare honestly</h3>
@@ -75,6 +75,7 @@
         <div class="formula">value = pool x (1 + share x daily move) - costs</div>
       </div>
     </div>
+    <p class="note" style="margin-top:14px">c is a constant chosen so the managed plan is as volatile as the index.</p>
 
     <div class="grid-2" style="margin-top:36px">
       <div class="card">
@@ -111,7 +112,7 @@
 </section>
 
 <footer class="site container">
-  Educational tool. Daily closes from Yahoo Finance (^NSEI, ^NSEBANK). Not investment advice.
+  Educational tool. Daily closes from Yahoo Finance (^NSEI, ^NSEBANK). Not investment advice. Price indices without dividends.
 </footer>
 
 <script type="module" src="js/landing.js"></script>

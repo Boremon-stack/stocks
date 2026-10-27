@@ -1,7 +1,7 @@
 const NS = 'http://www.w3.org/2000/svg';
 const PAD = { l: 58, r: 14, t: 10, b: 22 };
 
-export const inr = (x) => `₹${Math.round(x).toLocaleString('en-IN')}`;
+export const inr = (x) => `₹${(Math.round(x) || 0).toLocaleString('en-IN')}`;
 
 export function lakh(x) {
   const a = Math.abs(x);

@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     res.status(400).json({ error: 'need at least 200 daily rows (about 10 months) for the statistics' });
     return;
   }
-  const rf = num(body.rf, 0.065, 0, 0.5);
+  const rf = num(body.rf, 0, 0, 0.5);
   const study = paperStudy(rows, { rf });
   const r = dailyReturns(rows.map((d) => d.close)).slice(1);
   res.status(200).json({

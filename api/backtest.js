@@ -54,7 +54,7 @@ export default async function handler(req, res) {
     mode,
     window,
     cost: num(body.cost, 0.001, 0, 0.05),
-    rf: num(body.rf, 0.065, 0, 0.5),
+    rf: num(body.rf, 0, 0, 0.5),
     minExposure,
     maxExposure,
     initial: num(body.initial, 100000, 1, 1e12),
