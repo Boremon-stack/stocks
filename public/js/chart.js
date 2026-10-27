@@ -133,16 +133,22 @@ export function liveChart(root, series, { baseline = null, panels = SIP_VOL_PANE
     const legend = document.createElement('span');
     legend.className = 'lc-legend';
     for (const l of p.lines) {
+      const entry = document.createElement('span');
+      entry.className = 'lc-key';
       const k = document.createElement('i');
-      k.style.background = l.color;
-      legend.appendChild(k);
+      k.style.background = l.dash ? 'none' : l.color;
+      if (l.dash) k.style.borderTop = `2px dashed ${l.color}`;
+      k.style.height = '0';
+      if (!l.dash) { k.style.height = '3px'; }
+      entry.appendChild(k);
       let tag = l.label;
       if (p.markers && !l.dash) {
         const vals = series.map((d) => d[l.key]);
         const at = p.markers === 'min' ? vals.indexOf(Math.min(...vals)) : n - 1;
         tag += ` ${p.markers === 'min' ? 'deepest' : 'ends at'} ${p.markFmt(vals[at])} on ${fmtDay(ts[at])}`;
       }
-      legend.appendChild(document.createTextNode(tag));
+      entry.appendChild(document.createTextNode(tag));
+      legend.appendChild(entry);
     }
     head.appendChild(legend);
     box.appendChild(head);
