@@ -17,6 +17,7 @@
     <a class="brand" href="index.html">Volatility <span>Lab</span></a>
     <nav class="nav">
       <a class="hide-sm" href="index.html">Home</a>
+      <button class="btn ghost" id="navUpload" type="button">Upload your CSV</button>
       <a class="btn ghost" href="results.html" aria-current="page">Past results</a>
     </nav>
   </div>
@@ -30,26 +31,32 @@
   </section>
 
   <div class="controls">
-    <label class="field">Index
-      <select id="index">
-        <option value="nifty50" selected>Nifty 50</option>
-        <option value="banknifty">Bank Nifty</option>
-      </select>
-    </label>
+    <div class="seg" role="group" aria-label="Index">
+      <button type="button" class="seg-b" data-index="nifty50" aria-pressed="true">Nifty 50</button>
+      <button type="button" class="seg-b" data-index="banknifty" aria-pressed="false">Bank Nifty</button>
+    </div>
+    <select id="index" hidden><option value="nifty50" selected>Nifty 50</option><option value="banknifty">Bank Nifty</option></select>
+    <button class="btn" id="openSettings" type="button">Settings</button>
+    <button class="btn ghost" id="openUpload" type="button">Upload your CSV</button>
   </div>
 
-  <details class="more">
-    <summary>Settings and your own data</summary>
-    <div class="settings">
-      <label class="field">Monthly amount (₹)<input id="monthly" type="number" min="1" step="1000" value="10000"></label>
-      <label class="field">Most in index (%)<input id="maxExp" type="number" min="1" max="100" step="1" value="100"></label>
-      <label class="field">Cost per trade (bp)<input id="costBps" type="number" min="0" max="100" step="1" value="0"></label>
-      <label class="field">From (optional)<input id="from" type="date"></label>
-      <label class="field">To (optional)<input id="to" type="date"></label>
-      <label class="field">Your own CSV (replaces the selected index)<input id="file" type="file" accept=".csv,text/csv"></label>
-    </div>
-    <p class="note" style="margin-top:10px">A CSV needs a date column and a close column. Dates may be 27-Oct-2025, 27-10-2025 or 2025-10-27, in any order. Your file is used on the live chart and the statistics tab.</p>
-  </details>
+  <dialog id="dlg" class="dlg">
+    <form method="dialog">
+      <h2>Your data and settings</h2>
+      <div class="settings">
+        <label class="field">Monthly amount (₹)<input id="monthly" type="number" min="1" step="1000" value="10000"></label>
+        <label class="field">Most in index (%)<input id="maxExp" type="number" min="1" max="100" step="1" value="100"></label>
+        <label class="field">Cost per trade (bp)<input id="costBps" type="number" min="0" max="100" step="1" value="0"></label>
+        <label class="field">From (optional)<input id="from" type="date"></label>
+        <label class="field">To (optional)<input id="to" type="date"></label>
+      </div>
+      <label class="drop">Upload your own CSV <strong id="dlgIndex">for Nifty 50</strong>
+        <input id="file" type="file" accept=".csv,text/csv">
+      </label>
+      <p class="note" style="margin-top:10px">A CSV needs a date column and a close column. Dates may be 27-Oct-2025, 27-10-2025 or 2025-10-27, in any order. It replaces the selected index on every tab, Compare included.</p>
+      <p style="margin-top:14px;text-align:right"><button class="btn" value="close">Done</button></p>
+    </form>
+  </dialog>
   <div class="status" id="status" role="status"></div>
 
   <div class="tabs" role="tablist" aria-label="Views">

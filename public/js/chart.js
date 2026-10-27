@@ -103,16 +103,23 @@ export function liveChart(root, series, { baseline = null, panels = SIP_VOL_PANE
   const x = (i) => PAD.l + ((ts[i] - ts[0]) / span) * plotW;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const yearTicks = [];
-  let lastYear = '';
-  series.forEach((d, i) => {
-    const y = d.date.slice(0, 4);
-    if (y !== lastYear) {
-      lastYear = y;
-      yearTicks.push({ i, label: y });
+  const fmtDay = (t) => new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  const fmtMon = (t) => new Date(t).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+  const xAt = (t) => PAD.l + ((t - ts[0]) / span) * plotW;
+  const first = new Date(ts[0]);
+  const stepMonths = plotW / (span / 2.63e9) >= 14 ? 6 : 12;
+  const dateTicks = [
+    { xx: xAt(ts[0]), label: fmtDay(ts[0]), anchor: 'start' },
+    { xx: xAt(ts[n - 1]), label: fmtDay(ts[n - 1]), anchor: 'end' },
+  ];
+  for (let y = first.getUTCFullYear(); y <= new Date(ts[n - 1]).getUTCFullYear(); y++) {
+    for (let m = 0; m < 12; m += stepMonths) {
+      const t = Date.UTC(y, m, 1);
+      const xx = xAt(t);
+      if (t <= ts[0] || t >= ts[n - 1] || xx < PAD.l + 62 || xx > PAD.l + plotW - 62) continue;
+      dateTicks.push({ xx, label: fmtMon(t), anchor: 'middle' });
     }
-  });
-  const skip = Math.max(1, Math.ceil(yearTicks.length / Math.max(1, Math.floor(plotW / 64))));
+  }
 
   const crosshairs = [];
   const built = panels.map((p) => {
@@ -151,7 +158,7 @@ export function liveChart(root, series, { baseline = null, panels = SIP_VOL_PANE
     if (p.fixed) [lo, hi] = p.fixed;
     const padY = p.fixed || p.zeroMax || p.zeroMin ? 0 : (hi - lo) * 0.06;
     lo -= padY;
-    hi += padY;
+    hi += padY * (p.markers === 'end' ? 3 : 1);
     if (p.zeroMax) lo -= (hi - lo) * 0.08 || 0.01;
     if (p.zeroMin) hi += (hi - lo) * 0.08 || 0.01;
     const y = (v) => PAD.t + (1 - (v - lo) / (hi - lo || 1)) * (p.height - PAD.t - PAD.b);
@@ -162,25 +169,41 @@ export function liveChart(root, series, { baseline = null, panels = SIP_VOL_PANE
       const lab = el('text', { x: PAD.l - 8, y: yy + 4, 'text-anchor': 'end', class: 'lc-axis' }, svg);
       lab.textContent = p.axisFmt(t);
     }
-    yearTicks.forEach((t, k) => {
-      if (k % skip) return;
-      const xx = PAD.l + ((Math.max(ts[0], Date.parse(`${t.label}-01-01T00:00:00Z`)) - ts[0]) / span) * plotW;
-      el('line', { x1: xx, x2: xx, y1: p.height - PAD.b, y2: p.height - PAD.b + 4, stroke: 'var(--muted)' }, svg);
-      const lab = el('text', { x: xx, y: p.height - 5, 'text-anchor': 'middle', class: 'lc-axis' }, svg);
+    for (const t of dateTicks) {
+      el('line', { x1: t.xx, x2: t.xx, y1: PAD.t, y2: p.height - PAD.b, stroke: 'var(--rule)', 'stroke-width': 1, opacity: 0.5 }, svg);
+      el('line', { x1: t.xx, x2: t.xx, y1: p.height - PAD.b, y2: p.height - PAD.b + 4, stroke: 'var(--muted)' }, svg);
+      const lab = el('text', { x: t.xx, y: p.height - 5, 'text-anchor': t.anchor, class: 'lc-axis' }, svg);
       lab.textContent = t.label;
-    });
+    }
     if (base !== null) {
       el('line', { x1: PAD.l, x2: width - PAD.r, y1: y(base), y2: y(base), stroke: 'var(--muted)', 'stroke-dasharray': '3 4' }, svg);
     }
 
+    const notes = [];
     for (const l of p.lines) {
       const pts = series.map((d, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(d[l.key]).toFixed(1)}`).join(' ');
       if (l.fill) {
         const floor = y(p.zeroMax || p.zeroMin ? 0 : lo);
         el('path', { d: `${pts} L${x(n - 1).toFixed(1)},${floor} L${x(0).toFixed(1)},${floor} Z`, fill: l.color, opacity: p.id === 'value' ? 0.07 : 0.14 }, svg);
       }
-      const path = el('path', { d: pts, fill: 'none', stroke: l.color, 'stroke-width': l.thin ? 1.2 : 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
-      if (!reduce) {
+      const path = el('path', { d: pts, fill: 'none', stroke: l.color, 'stroke-width': l.thin || l.dash ? 1.2 : 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+      if (l.dash) path.setAttribute('stroke-dasharray', '5 4');
+      if (p.markers && !l.dash) {
+        const vals = series.map((d) => d[l.key]);
+        const at = p.markers === 'min' ? vals.indexOf(Math.min(...vals)) : n - 1;
+        const lastOf = (q) => series[n - 1][q.key];
+        const li = p.lines.filter((q) => !q.dash && lastOf(q) > lastOf(l)).length;
+        const px = x(at);
+        const py = y(vals[at]);
+        el('circle', { cx: px, cy: py, r: 4, fill: l.color, stroke: 'var(--card)', 'stroke-width': 2 }, svg);
+        const right = px < PAD.l + plotW * 0.7;
+        const note = el('text', { x: right ? px + 8 : px - 8, y: p.markers === 'min'
+          ? (py + 14 + li * 14 > p.height - PAD.b - 4 ? py - 8 - li * 14 : py + 14 + li * 14)
+          : py + (li === 0 ? -9 : 16 + (li - 1) * 14), 'text-anchor': right ? 'start' : 'end', class: 'lc-axis', style: `fill:${l.color};font-weight:600` }, svg);
+        note.textContent = `${p.markFmt(vals[at])} · ${fmtDay(ts[at])}`;
+        notes.push(note);
+      }
+      if (!reduce && !l.dash) {
         const len = path.getTotalLength();
         path.style.strokeDasharray = len;
         path.style.strokeDashoffset = len;
@@ -190,10 +213,23 @@ export function liveChart(root, series, { baseline = null, panels = SIP_VOL_PANE
       }
     }
 
+    const placed = [];
+    for (const note of notes.sort((a, b) => Number(a.getAttribute('y')) - Number(b.getAttribute('y')))) {
+      for (let guard = 0; guard < 8; guard++) {
+        const b = note.getBBox();
+        const hit = placed.some((q) => b.x < q.x + q.width && q.x < b.x + b.width && b.y < q.y + q.height && q.y < b.y + b.height);
+        if (!hit) break;
+        note.setAttribute('y', Number(note.getAttribute('y')) + b.height + 2);
+      }
+      const b = note.getBBox();
+      if (b.y + b.height > p.height - PAD.b) note.setAttribute('y', p.height - PAD.b - 3);
+      placed.push(note.getBBox());
+    }
+
     const cross = el('line', { y1: PAD.t, y2: p.height - PAD.b, stroke: 'var(--ink)', 'stroke-width': 1, opacity: 0, 'pointer-events': 'none' }, svg);
     const dots = p.lines.map((l) => el('circle', { r: 4, fill: l.color, stroke: 'var(--card)', 'stroke-width': 2, opacity: 0, 'pointer-events': 'none' }, svg));
     crosshairs.push({ cross, dots, p, y });
-    return { svg, p };
+    return { svg, p, meta: { lo, hi, top: PAD.t, bottom: p.height - PAD.b } };
   });
 
   function show(i) {
@@ -260,6 +296,7 @@ export function liveChart(root, series, { baseline = null, panels = SIP_VOL_PANE
     const wrapRect = wrap.getBoundingClientRect();
     tip.style.top = `${Math.max(0, e.clientY - wrapRect.top - tip.offsetHeight - 14)}px`;
   });
+  root.__audit = { series, ts, span, plotW, width, panels: built };
   wrap.addEventListener('pointerleave', hide);
   wrap.style.touchAction = 'pan-y';
   return { width };
@@ -295,4 +332,65 @@ export function barChart(root, { labels, series, fmt, height = 170, zeroLine = t
     const lab = el('text', { x: padL + g * groupW + groupW / 2, y: height - 6, 'text-anchor': 'middle', class: 'lc-axis' }, svg);
     lab.textContent = label;
   });
+}
+
+// Chart self-audit: checks drawn geometry against the data it was built from.
+// Every plotted point is inverted back to a value, tick dates are checked against real dates,
+// marker labels against the data extremes, and all text against overlap and the SVG bounds.
+export function auditCharts(root) {
+  const a = root.__audit;
+  const fails = [];
+  let checks = 0;
+  const ok = (cond, msg) => { checks++; if (!cond) fails.push(msg); };
+  if (!a) return { checks: 0, fails: ['no chart rendered'] };
+  const { series, ts, span, plotW, width } = a;
+  const n = series.length;
+  const dateOf = (px) => Math.round(ts[0] + ((px - PAD.l) / plotW) * span);
+  a.panels.forEach(({ svg, p, meta }) => {
+    const name = p.title;
+    const strokes = [...svg.querySelectorAll('path')].filter((e) => e.getAttribute('fill') === 'none');
+    ok(strokes.length === p.lines.length, `${name}: ${strokes.length} lines drawn, ${p.lines.length} expected`);
+    p.lines.forEach((l, k) => {
+      const pts = (strokes[k]?.getAttribute('d') || '').match(/[ML][-\d.]+,[-\d.]+/g) || [];
+      ok(pts.length === n, `${name} / ${l.label}: ${pts.length} points drawn, ${n} in the data`);
+      let worstPx = 0;
+      let worstDay = 0;
+      pts.forEach((s, i) => {
+        const [px, py] = s.slice(1).split(',').map(Number);
+        const v = meta.hi - ((py - meta.top) / (meta.bottom - meta.top)) * (meta.hi - meta.lo);
+        const want = series[i][l.key];
+        const perPx = (meta.hi - meta.lo) / (meta.bottom - meta.top) || 1;
+        worstPx = Math.max(worstPx, Math.abs(v - want) / perPx);
+        worstDay = Math.max(worstDay, Math.abs(dateOf(px) - ts[i]) / 864e5);
+      });
+      ok(worstPx <= 0.06 + 1e-6, `${name} / ${l.label}: a point is ${worstPx.toFixed(3)} px from its value`);
+      ok(worstDay <= 1.5, `${name} / ${l.label}: a point sits ${worstDay.toFixed(2)} days from its date`);
+      const vals = series.map((d) => d[l.key]);
+      ok(vals.every(Number.isFinite), `${name} / ${l.label}: non-finite value in the data`);
+      const [lo, hi] = [Math.min(...vals), Math.max(...vals)];
+      ok(lo >= meta.lo - 1e-9 && hi <= meta.hi + 1e-9, `${name} / ${l.label}: data ${lo}..${hi} is cut off by the axis ${meta.lo}..${meta.hi}`);
+    });
+    const texts = [...svg.querySelectorAll('text')].map((t) => ({ t, b: t.getBBox(), s: t.textContent }));
+    texts.forEach(({ b, s }) => ok(b.x >= -1 && b.x + b.width <= width + 1 && b.y >= -1 && b.y + b.height <= svg.viewBox.baseVal.height + 1, `${name}: label "${s}" is outside the chart`));
+    for (let i = 0; i < texts.length; i++) {
+      for (let j = i + 1; j < texts.length; j++) {
+        const u = texts[i].b;
+        const v = texts[j].b;
+        const hit = u.x < v.x + v.width - 1 && v.x < u.x + u.width - 1 && u.y < v.y + v.height - 1 && v.y < u.y + u.height - 1;
+        ok(!hit, `${name}: labels "${texts[i].s}" and "${texts[j].s}" overlap`);
+      }
+    }
+    const axisDates = texts.map((x) => x.s).filter((s) => /^\d{1,2} [A-Z][a-z]{2} \d{4}$/.test(s));
+    const fmt = (t) => new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+    ok(axisDates.includes(fmt(ts[0])) && axisDates.includes(fmt(ts[n - 1])), `${name}: axis does not start and end on the first and last data dates`);
+    if (p.markers === 'min') {
+      p.lines.filter((l) => !l.dash).forEach((l) => {
+        const m = Math.min(...series.map((d) => d[l.key]));
+        const at = series.findIndex((d) => d[l.key] === m);
+        const tag = `${p.markFmt(m)} · ${fmt(ts[at])}`;
+        ok(texts.some((x) => x.s === tag), `${name} / ${l.label}: marker "${tag}" missing`);
+      });
+    }
+  });
+  return { checks, fails };
 }

@@ -196,3 +196,13 @@ details.more summary { cursor: pointer; font: 600 13px var(--sans); color: var(-
 
 /* all data tab: cards stack with spacing */
 #dataRoot > .card + .card { margin-top: 16px; }
+
+.seg { display: inline-flex; border: 1px solid var(--ink); border-radius: 999px; padding: 3px; background: var(--card); }
+.seg-b { font: 700 15px var(--sans); color: var(--ink); background: none; border: 0; border-radius: 999px; padding: 9px 20px; cursor: pointer; }
+.seg-b[aria-pressed="true"] { background: var(--ink); color: var(--card); }
+.controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 18px 0 8px; }
+.dlg { border: 1px solid var(--rule); border-radius: 18px; background: var(--card); color: var(--ink); max-width: min(560px, 92vw); padding: 24px 26px; box-shadow: 0 24px 60px rgba(31, 29, 26, .25); }
+.dlg::backdrop { background: rgba(31, 29, 26, .45); }
+.dlg h2 { margin: 0 0 14px; font-size: 22px; }
+.drop { display: block; margin-top: 16px; padding: 18px; border: 2px dashed var(--muted); border-radius: 14px; font-weight: 700; cursor: pointer; }
+.drop input { display: block; margin-top: 10px; font-weight: 400; }

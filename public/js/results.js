@@ -1,4 +1,18 @@
-import { inr, lakh, pct, liveChart, barChart } from './chart.js';
+import { inr, lakh, pct, liveChart as drawChart, barChart, auditCharts } from './chart.js';
+
+function liveChart(root, rows, opts) {
+  drawChart(root, rows, opts);
+  let note = root.nextElementSibling?.classList.contains('audit') ? root.nextElementSibling : null;
+  if (!note) {
+    note = document.createElement('p');
+    note.className = 'audit note';
+    root.after(note);
+  }
+  const { checks, fails } = auditCharts(root);
+  note.textContent = fails.length
+    ? `Chart audit: ${fails.length} of ${checks} checks failed. ${fails.slice(0, 3).join(' | ')}`
+    : `Chart audit: ${checks} of ${checks} checks passed (every point matches its value and date, labels do not overlap).`;
+}
 
 const FILES = { nifty50: 'data/nifty50.csv', banknifty: 'data/banknifty.csv' };
 const NAMES = { nifty50: 'Nifty 50', banknifty: 'Bank Nifty' };
@@ -6,15 +20,16 @@ const TABS = ['live', 'compare', 'stats', 'data'];
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const LIST_CAP = 400;
 const LIVE_KEYS = ['dcaEquity', 'vmEquity', 'dcaDd', 'vmDd', 'priorMonthVol', 'dcaShare', 'vmShare', 'vmTarget'];
-const CMP_KEYS = ['nPrice', 'bPrice', 'nDca', 'bDca', 'nVm', 'bVm', 'nVmDd', 'bVmDd', 'nDcaDd', 'bDcaDd', 'nVmTarget', 'bVmTarget'];
+const CMP_KEYS = ['nPrice', 'bPrice', 'nDca', 'bDca', 'nVm', 'bVm', 'nVmDd', 'bVmDd', 'nDcaDd', 'bDcaDd', 'nVmTarget', 'bVmTarget', 'put'];
 const SETTING_IDS = ['monthly', 'maxExp', 'costBps', 'from', 'to'];
 const PAIR = (nk, bk) => [{ key: nk, color: 'var(--nifty)', label: 'Nifty 50' }, { key: bk, color: 'var(--bank)', label: 'Bank Nifty' }];
-const pctAxis = (v) => `${(v * 100).toFixed(0)}%`;
+const PUT = { key: 'put', color: 'var(--muted)', label: 'Money put in', dash: true };
+const pctAxis =(v) => `${(v * 100).toFixed(0)}%`;
 const CMP_PANELS = [
-  { id: 'value', title: 'Volatility-managed portfolio value', height: 250, lines: PAIR('nVm', 'bVm'), axisFmt: (v) => lakh(v).replace(' ', '') },
-  { id: 'dca', title: 'Monthly DCA portfolio value', height: 200, lines: PAIR('nDca', 'bDca'), axisFmt: (v) => lakh(v).replace(' ', '') },
-  { id: 'ddDca', title: 'Drawdown over time: monthly DCA (fall from the previous high of the NAV)', height: 170, lines: PAIR('nDcaDd', 'bDcaDd'), axisFmt: pctAxis, fixed: [-0.5, 0] },
-  { id: 'dd', title: 'Drawdown over time: volatility-managed (fall from the previous high of the NAV)', height: 170, lines: PAIR('nVmDd', 'bVmDd'), axisFmt: pctAxis, fixed: [-0.5, 0] },
+  { id: 'value', title: 'Volatility-managed portfolio value', height: 250, lines: [...PAIR('nVm', 'bVm'), PUT], axisFmt: (v) => lakh(v).replace(' ', ''), markers: 'end', markFmt: inr },
+  { id: 'dca', title: 'Monthly DCA portfolio value', height: 220, lines: [...PAIR('nDca', 'bDca'), PUT], axisFmt: (v) => lakh(v).replace(' ', ''), markers: 'end', markFmt: inr },
+  { id: 'ddDca', title: 'Drawdown over time: monthly DCA (fall from the previous high of the NAV)', height: 170, lines: PAIR('nDcaDd', 'bDcaDd'), axisFmt: pctAxis, fixed: [-0.5, 0], markers: 'min', markFmt: (v) => pct(v, 2) },
+  { id: 'dd', title: 'Drawdown over time: volatility-managed (fall from the previous high of the NAV)', height: 170, lines: PAIR('nVmDd', 'bVmDd'), axisFmt: pctAxis, fixed: [-0.5, 0], markers: 'min', markFmt: (v) => pct(v, 2) },
 ];
 const PAPER_ROWS = [
   ['Annualised alpha', (p) => pct(p.alphaAnnual, 2)],
@@ -171,10 +186,13 @@ const deepest = (p) => {
 function mergeSeries(sa, sb) {
   if (!Array.isArray(sa) || !Array.isArray(sb)) return [];
   const byDate = new Map(sb.map((d) => [d.date, d]));
+  let put = 0;
   return sa.filter((d) => byDate.has(d.date)).map((x) => {
     const y = byDate.get(x.date);
+    put += x.contribution || 0;
     return {
       date: x.date,
+      put,
       nPrice: x.price, bPrice: y.price,
       nDca: x.dcaEquity, bDca: y.dcaEquity,
       nVm: x.vmEquity, bVm: y.vmEquity,
@@ -383,14 +401,15 @@ function livePanels(hasCtl) {
     {
       id: 'value', title: 'Portfolio value', height: 250,
       lines: [
+        { key: 'put', color: 'var(--muted)', label: 'Money put in', dash: true },
         { key: 'dcaEquity', color: 'var(--sip)', label: 'Monthly DCA' },
         { key: 'vmEquity', color: 'var(--vol)', label: 'Volatility-managed', fill: true },
         ...(hasCtl ? [{ key: 'ctlEquity', color: 'var(--ink-2)', label: 'Constant target', thin: true }] : []),
       ],
-      axisFmt: (v) => lakh(v).replace(' ', ''),
+      axisFmt: (v) => lakh(v).replace(' ', ''), markers: 'end', markFmt: inr,
     },
     {
-      id: 'dd', title: 'Fall from the previous high', height: 130,
+      id: 'dd', title: 'Drawdown over time (fall from the previous high of the NAV)', height: 170, markers: 'min', markFmt: (v) => pct(v, 2),
       lines: [
         { key: 'dcaDd', color: 'var(--sip)', label: 'Monthly DCA', fill: true },
         { key: 'vmDd', color: 'var(--vol)', label: 'Volatility-managed', fill: true },
@@ -430,8 +449,9 @@ const planTooltip = (name) => (d) => {
 function renderChart(r, name) {
   const chart = $('chart');
   const note = $('chartNote');
-  const all = Array.isArray(r.series) ? r.series : [];
-  const rows = chartRows(all, LIVE_KEYS);
+  let put = 0;
+  const all = (Array.isArray(r.series) ? r.series : []).map((d) => ({ ...d, put: (put += d.contribution || 0) }));
+  const rows = chartRows(all, [...LIVE_KEYS, 'put']);
   const hasCtl = rows.length > 0 && rows.every((d) => isNum(d.ctlEquity));
   if (rows.length < 2) {
     chart.textContent = 'Not enough data for a chart.';
@@ -518,7 +538,7 @@ function renderLive(data) {
 }
 
 async function loadCompare() {
-  const [csvN, csvB] = await Promise.all([fetchText(FILES.nifty50), fetchText(FILES.banknifty)]);
+  const [csvN, csvB] = await Promise.all(['nifty50', 'banknifty'].map((k) => (state.overrides[k] ? state.overrides[k].text : fetchText(FILES[k]))));
   const body = settings();
   const [n, b] = await Promise.all([
     cachedPost('api/dcavm', { csv: csvN, ...body }),
@@ -529,6 +549,7 @@ async function loadCompare() {
 
 const cmpTooltip = (d) => ({
   rows: [
+    { label: 'Money put in so far', value: inr(d.put) },
     { label: 'Nifty 50 close', value: Math.round(d.nPrice).toLocaleString('en-IN'), color: 'var(--nifty)' },
     { label: 'Bank Nifty close', value: Math.round(d.bPrice).toLocaleString('en-IN'), color: 'var(--bank)' },
     { label: 'Nifty 50 volatility-managed', value: lakh(d.nVm), color: 'var(--nifty)' },
@@ -1176,9 +1197,22 @@ async function onFile(e) {
 
 function init() {
   state.index = $('index').value || 'nifty50';
-  $('index').addEventListener('change', (e) => { state.index = e.target.value; refresh(); });
+  const setIndex = (v) => {
+    state.index = v;
+    $('index').value = v;
+    document.querySelectorAll('.seg-b').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.index === v)));
+    $('dlgIndex').textContent = `for ${NAMES[v]}`;
+    refresh();
+  };
+  document.querySelectorAll('.seg-b').forEach((b) => b.addEventListener('click', () => setIndex(b.dataset.index)));
+  const dlg = $('dlg');
+  $('openSettings').addEventListener('click', () => dlg.showModal());
+  const openUpload = () => { dlg.showModal(); $('file').focus(); };
+  $('openUpload').addEventListener('click', openUpload);
+  $('navUpload').addEventListener('click', openUpload);
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
   SETTING_IDS.forEach((id) => $(id).addEventListener('change', debounce(refresh, 300)));
-  $('file').addEventListener('change', onFile);
+  $('file').addEventListener('change', async (e) => { await onFile(e); dlg.close(); });
   $('download').addEventListener('click', downloadDaily);
   $('downloadTrades').addEventListener('click', downloadTrades);
   $('downloadStats').addEventListener('click', downloadStats);
