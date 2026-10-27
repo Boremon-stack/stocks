@@ -1,0 +1,53 @@
+{
+  "months": 120,
+  "rebalance": "monthly",
+  "rows": 1968,
+  "s0": 40,
+  "from_": "2019-01-02",
+  "to": "2026-10-27",
+  "days": 1928,
+  "niftyChange": 1.1079221681723421,
+  "sip": {
+    "final": 1715311.9804417647,
+    "profit": 715311.9804417647,
+    "returnPct": 0.7153119804417647,
+    "maxDrawdown": -0.10978413444126445,
+    "troughDate": "2026-03-30",
+    "longestUnderwaterDays": 199,
+    "worstDay": -0.037193116633701395,
+    "bestDay": 0.027607539325086528,
+    "costTotal": 940.0,
+    "avgExposure": 0.44141564418467244,
+    "annVol": 0.06806770153117336,
+    "sharpe": 0.11596208485360181,
+    "invested": 940000.0,
+    "purchases": 94,
+    "moneyWeightedReturn": 0.07987001590746844
+  },
+  "vol": {
+    "final": 1978583.3495465876,
+    "profit": 978583.3495465876,
+    "returnPct": 0.9785833495465877,
+    "maxDrawdown": -0.23460579307696316,
+    "troughDate": "2020-03-23",
+    "longestUnderwaterDays": 330,
+    "worstDay": -0.05929358362097503,
+    "bestDay": 0.04742346676836884,
+    "costTotal": 14514.546909678218,
+    "avgExposure": 0.9309333168232867,
+    "annVol": 0.13924303860278156,
+    "sharpe": 0.2447844617844515
+  },
+  "regression": {
+    "alphaAnnual": -0.0011586039334364631,
+    "beta": 0.7398586538953448,
+    "appraisalAnnual": -0.02116266954238115,
+    "sharpeOriginal": 0.2752623516263122
+  },
+  "first_weight": 0.8606165781283575,
+  "mean_weight": 0.9309333168232867,
+  "min_weight": 0.05802277956465606,
+  "max_weight": 1.0,
+  "last_sip_value": 1715311.9804417647,
+  "last_vol_value": 1978583.3495465876
+}

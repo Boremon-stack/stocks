@@ -1,0 +1,54 @@
+{
+  "paper": {
+    "alphaAnnual": 0.0486,
+    "beta": 0.6,
+    "appraisalAnnual": 0.34,
+    "utilityGain": 0.65
+  },
+  "results": [
+    {
+      "label": "Paper sample, 1926-07 to 2015-12",
+      "months": 1073,
+      "from": "192608",
+      "to": "201512",
+      "c": 0.0009279406768558353,
+      "sdOriginal": 0.05388382871139559,
+      "sdManaged": 0.05388382871139557,
+      "n": 1073,
+      "alphaAnnual": 0.0487646876492505,
+      "beta": 0.6014440413796467,
+      "tAlpha": 3.068734140644522,
+      "r2": 0.36173493491108255,
+      "rmse": 0.04306868792770324,
+      "appraisalAnnual": 0.3268535320660766,
+      "sharpeOriginal": 0.41539970376969343,
+      "sharpeCombined": 0.5285736895798152,
+      "utilityGain": 0.6191188113793349,
+      "sharpeManaged": 0.5110897233861492,
+      "sharpeIncrease": 0.23035649459564467,
+      "maxWeight": 16.849719848102822
+    },
+    {
+      "label": "All available months",
+      "months": 1202,
+      "from": "192608",
+      "to": "202609",
+      "c": 0.0009282921901876938,
+      "sdOriginal": 0.05301436758545797,
+      "sdManaged": 0.05301436758545797,
+      "n": 1202,
+      "alphaAnnual": 0.04510965346013224,
+      "beta": 0.600959681828857,
+      "tAlpha": 3.048542727315475,
+      "r2": 0.36115253918384393,
+      "rmse": 0.042390940510395,
+      "appraisalAnnual": 0.3071891099216308,
+      "sharpeOriginal": 0.45238671672477615,
+      "sharpeCombined": 0.5468261979125237,
+      "utilityGain": 0.4610966238734863,
+      "sharpeManaged": 0.517498368716868,
+      "sharpeIncrease": 0.14392918621371598,
+      "maxWeight": 16.856102692731163
+    }
+  ]
+}

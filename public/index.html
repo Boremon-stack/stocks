@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Volatility Lab</title>
-  <meta name="description" content="Volatility-managed portfolios for NSE stocks. Scale exposure by recent variance, then test it out of sample on real data.">
+  <meta name="description" content="Volatility Lab back-tests a volatility-based rule against a monthly SIP on real Nifty 50 and Bank Nifty daily data, 2019 to 2026.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -35,7 +35,7 @@
     <nav class="nav">
       <a class="hide-sm" href="#method">Method</a>
       <a class="hide-sm" href="#live">Live chart</a>
-      <a class="btn" href="app.html">Enter the lab</a>
+      <a class="btn" href="results.html">Past results</a>
     </nav>
   </div>
 </header>
@@ -45,9 +45,9 @@
   <div class="container">
     <p class="eyebrow">Volatility-managed portfolios · NSE</p>
     <h1>Hold less when the market is shaking. Measure whether it helps.</h1>
-    <p class="lede" style="margin-top:22px">Volatility Lab implements the rule from Moreira and Muir's paper <em>Volatility-Managed Portfolios</em> (SSRN 2659431). It scales your exposure by recent realized variance, then tests the result on data the rule never saw.</p>
+    <p class="lede" style="margin-top:22px">Volatility Lab back-tests a simple rule on real Nifty 50 and Bank Nifty prices, 2019 to 2026: put in Rs 10,000 every month, or hold more or less of a Rs 10 lakh pool in the index depending on how rough the last 20 trading days were. Based on Moreira and Muir, <em>Volatility-Managed Portfolios</em> (SSRN 2659431).</p>
     <div class="hero-actions">
-      <a class="btn" href="app.html">Enter the lab</a>
+      <a class="btn" href="results.html">See the past results</a>
       <a class="btn ghost" href="#method">How it works</a>
     </div>
   </div>
@@ -60,30 +60,30 @@
     <p class="muted" style="max-width:40em">The maths follows the paper. You can reproduce any number on the page from the same CSV.</p>
     <div class="grid-3 steps" style="margin-top:28px">
       <div class="step">
-        <h3>Measure the risk</h3>
-        <p>Turn each day's close into a return, then average the squared returns over the last 20 days.</p>
-        <div class="formula">v<sub>t</sub> = mean(r²) over 20 days</div>
+        <h3>Measure the swings</h3>
+        <p>Average the squared daily moves of the last 20 trading days.</p>
+        <div class="formula">v = mean of r squared over 20 days</div>
       </div>
       <div class="step">
-        <h3>Scale the exposure</h3>
-        <p>Hold more when variance is low, less when it is high. The constant c is fixed on the first 70% of the data only.</p>
-        <div class="formula">w<sub>t+1</sub> = c / v<sub>t</sub></div>
+        <h3>Set the share of the pool</h3>
+        <p>Hold less when recent swings are larger than usual, more when they are calmer, never more than the cap you choose.</p>
+        <div class="formula">share = typical variance / v, between your least and most</div>
       </div>
       <div class="step">
-        <h3>Test it honestly</h3>
-        <p>Judge the rule on the last 30%, after costs for every change in exposure. Compare CAGR, Sharpe and drawdown with buy and hold.</p>
-        <div class="formula">R<sub>t+1</sub> = w<sub>t+1</sub> r<sub>t+1</sub> − cost·|Δw|</div>
+        <h3>Compare honestly</h3>
+        <p>Both plans start with the same Rs 10,00,000. Compare final value, biggest fall from a high, and return per unit of risk, after trading costs.</p>
+        <div class="formula">value = pool x (1 + share x daily move) - costs</div>
       </div>
     </div>
 
     <div class="grid-2" style="margin-top:36px">
       <div class="card">
-        <h3>Daily mode</h3>
-        <p class="muted">The 20-day rule from the workflow. Exposure is capped between 0% and 100%, so the strategy never borrows.</p>
+        <h3>Monthly SIP</h3>
+        <p class="muted">Rs 10,000 goes into the index on the first trading day of each month. The rest of the pool stays in cash.</p>
       </div>
       <div class="card">
-        <h3>Paper mode</h3>
-        <p class="muted">The paper's monthly version. It uses last month's realized variance, and the exposure is not capped, so it can exceed 100%.</p>
+        <h3>Volatility-based</h3>
+        <p class="muted">The share of the pool held in the index is reset each month from the last 20 days of volatility. The rest stays in cash.</p>
       </div>
     </div>
   </div>
@@ -91,32 +91,27 @@
 
 <section class="block" id="live">
   <div class="container">
-    <p class="eyebrow">Live, simulated</p>
-    <h2>A simulated index with volatility clustering</h2>
-    <p class="muted" style="max-width:40em">The chart runs the daily rule in your browser on a simulated series, so no market data is hosted here. The line is the simulated index; the bars are the exposure the rule would hold. The grey shaded area is the test period.</p>
+    <p class="eyebrow">Live, from real data</p>
+    <h2>Nifty 50 since January 2019</h2>
+    <p class="muted" style="max-width:40em">The chart is computed on the server from real daily closes. Move over it to read any day.</p>
     <div class="card panel-chart" style="margin-top:20px">
       <div class="readout" id="readout"></div>
-      <svg class="chart" id="live-chart" viewBox="0 0 900 340" role="img" aria-label="Nifty 50 price with the volatility-managed exposure"></svg>
-      <div class="legend">
-        <span><i style="background:var(--ink-2)"></i>Nifty 50 close (log scale)</span>
-        <span><i style="background:var(--accent-soft);height:8px;"></i>Exposure held</span>
-        <span><i style="background:var(--rule);height:10px;"></i>Test period</span>
-      </div>
+      <div id="live-chart" style="min-height:260px"></div>
     </div>
-    <p class="caveat" style="margin-top:14px">Simulated prices, illustrative only, and not investment advice. Results depend on the data window and costs.</p>
+    <p class="caveat" style="margin-top:14px">Historical back-test on price indices, without dividends. Not investment advice.</p>
   </div>
 </section>
 
 <section class="block">
   <div class="narrow" style="text-align:center">
-    <h2>Bring your own prices</h2>
-    <p class="muted">Upload an NSE stock or index as a CSV with <code>date</code> and <code>close</code> columns. The server runs the same calculation that the independent check reproduces.</p>
-    <p style="margin-top:22px"><a class="btn" href="app.html">Open the lab</a></p>
+    <h2>Study the Nifty this way</h2>
+    <p class="muted">Switch between Nifty 50 and Bank Nifty, change the pool, the monthly amount or the 20-day window, and read the statistics from the paper.</p>
+    <p style="margin-top:22px"><a class="btn" href="results.html">Open Past results</a></p>
   </div>
 </section>
 
 <footer class="site container">
-  Educational tool. No market data is hosted; upload your own NSE closes. Not investment advice.
+  Educational tool. Daily closes from Yahoo Finance (^NSEI, ^NSEBANK). Not investment advice.
 </footer>
 
 <script type="module" src="js/landing.js"></script>

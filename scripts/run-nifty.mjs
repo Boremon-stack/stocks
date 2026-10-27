@@ -1,5 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseCsv, backtest, dailyReturns, describe, acf, ljungBox } from '../public/js/backtest.js';
 
@@ -40,7 +42,20 @@ const table = (run) => {
   ].join('\n');
 };
 
-const reference = execFileSync('python', ['test/reference_check.py', dataFile], { cwd: root, encoding: 'utf8' });
+const refOut = join(tmpdir(), 'volatility-lab-reference-nifty50.json');
+execFileSync('python', ['test/reference_check.py', dataFile, refOut, String(opts.rf), String(opts.cost)], { cwd: root, encoding: 'utf8' });
+const refJson = JSON.parse(readFileSync(refOut, 'utf8'));
+
+const p4 = (x) => `${(x * 100).toFixed(4)}%`;
+const d6 = (a, b) => (Math.abs(a - b) * 100).toFixed(6);
+const indRow = (label, engine, pandas) => `| ${label} | ${p4(engine)} | ${p4(pandas)} | ${d6(engine, pandas)} |`;
+const independent = [
+  '| Quantity | Engine (JS) | pandas | Difference, pp |',
+  '| --- | ---: | ---: | ---: |',
+  indRow('Daily rule, test CAGR (managed)', runs.daily.outOfSample.strategy.cagr, refJson.daily.oos_st.cagr),
+  indRow('Paper rule, test CAGR (managed)', runs.monthly.outOfSample.strategy.cagr, refJson.monthly.oos_st.cagr),
+  indRow('Paper rule, annualised alpha, full sample', runs.monthly.regression.full.alphaAnnual, refJson.monthly.reg_full.alphaAnnual),
+].join('\n');
 
 mkdirSync(`${root}logs`, { recursive: true });
 const base = `${root}logs/nifty50-${stamp}`;
@@ -99,11 +114,9 @@ Excess kurtosis and the Ljung-Box result show fat tails and volatility clusterin
 
 ## Independent check
 
-The JS engine is checked against a pandas and scipy implementation (\`test/reference_check.py\`). Output from this run:
+The engine was compared with a pandas/statsmodels implementation (\`test/reference_check.py\`).
 
-\`\`\`
-${reference.trim()}
-\`\`\`
+${independent}
 
 ## Limits
 

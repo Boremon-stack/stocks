@@ -12,7 +12,8 @@ const types = {
   '.csv': 'text/csv; charset=utf-8',
   '.svg': 'image/svg+xml',
 };
-const apiHandler = (await import(pathToFileURL(fileURLToPath(new URL('../api/backtest.js', import.meta.url))).href)).default;
+const load = async (name) => (await import(pathToFileURL(fileURLToPath(new URL(`../api/${name}.js`, import.meta.url))).href)).default;
+const routes = { '/api/backtest': await load('backtest'), '/api/compare': await load('compare'), '/api/study': await load('study') };
 
 function shim(res) {
   res.status = (code) => ((res.statusCode = code), res);
@@ -26,13 +27,13 @@ function shim(res) {
 
 createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
-  if (url.pathname === '/api/backtest') {
+  if (routes[url.pathname]) {
     const chunks = [];
     for await (const c of req) chunks.push(c);
     const raw = Buffer.concat(chunks).toString('utf8');
     req.body = raw ? JSON.parse(raw) : {};
     try {
-      await apiHandler(req, shim(res));
+      await routes[url.pathname](req, shim(res));
     } catch (e) {
       shim(res).status(500).json({ error: e.message });
     }

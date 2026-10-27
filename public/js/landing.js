@@ -1,4 +1,4 @@
-import { parseCsv, backtest } from './backtest.js';
+import { liveChart, SIP_VOL_PANELS, sipVolTooltip, inr, lakh, pct } from './chart.js';
 
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -73,69 +73,64 @@ void main(){
   frame();
 }
 
-function drawLive(rows) {
-  const svg = document.getElementById('live-chart');
-  const bt = backtest(rows, { mode: 'daily', cost: 0.001, rf: 0.065 });
-  const s = bt.series;
-  const W = 900, H = 340, pl = 52, pr = 16, pt = 18, pb = 92;
-  const close = new Map(rows.map((r) => [r.date, r.close]));
-  const logs = s.map((d) => Math.log(close.get(d.date)));
-  const lo = Math.min(...logs), hi = Math.max(...logs);
-  const x = (i) => pl + (i / (s.length - 1)) * (W - pl - pr);
-  const yPrice = (l) => pt + (1 - (l - lo) / (hi - lo)) * (H - pt - pb);
-  const yBar = (w) => H - 8 - Math.min(w, 1) * (pb - 24);
-  const path = logs.map((l, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${yPrice(l).toFixed(1)}`).join(' ');
-  const bars = s
-    .map((d, i) => `<rect x="${(x(i) - 0.5).toFixed(1)}" y="${yBar(d.weight).toFixed(1)}" width="1.2" height="${(H - 8 - yBar(d.weight)).toFixed(1)}" fill="var(--accent-soft)"/>`)
-    .join('');
-  const splitX = x(bt.split).toFixed(1);
-  const testShade = `<rect x="${splitX}" y="${pt}" width="${(W - pr - splitX).toFixed(1)}" height="${H - pt - pb + 40}" fill="var(--rule)" opacity="0.45"/>`;
-  const ticks = [];
-  for (let y = Math.ceil(new Date(s[0].date).getFullYear()); y <= new Date(s.at(-1).date).getFullYear(); y += 3) {
-    const i = s.findIndex((d) => d.date.startsWith(String(y)));
-    if (i >= 0) ticks.push(`<text x="${x(i).toFixed(1)}" y="${H - 66}" fill="var(--muted)" font-size="12" font-family="var(--sans)">${y}</text>`);
-  }
-  svg.innerHTML = `
-    ${testShade}
-    <path d="${path}" fill="none" stroke="var(--ink-2)" stroke-width="1.6"/>
-    ${bars}
-    ${ticks.join('')}
-    <text x="${pl}" y="${pt - 4}" fill="var(--muted)" font-size="12" font-family="var(--sans)">log scale</text>`;
-
-  const oos = bt.outOfSample.strategy, bh = bt.outOfSample.buyHold;
-  const pct = (x) => `${(x * 100).toFixed(1)}%`;
-  document.getElementById('readout').innerHTML = `
-    <div class="kpi hi"><span>Test CAGR, managed</span><strong>${pct(oos.cagr)}</strong></div>
-    <div class="kpi"><span>Test CAGR, buy and hold</span><strong>${pct(bh.cagr)}</strong></div>
-    <div class="kpi"><span>Managed max drawdown</span><strong>${pct(oos.maxDrawdown)}</strong></div>
-    <div class="kpi"><span>Buy-and-hold max drawdown</span><strong>${pct(bh.maxDrawdown)}</strong></div>`;
-}
-
 startShader(document.getElementById('shader'));
 
-function simulatedRows(n = 4700, seed = 20070917) {
-  let s = seed >>> 0;
-  const rand = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
-  const gauss = () => Math.sqrt(-2 * Math.log(rand() || 1e-9)) * Math.cos(2 * Math.PI * rand());
-  const omega = 2e-6, alpha = 0.09, beta = 0.9;
-  let h = omega / (1 - alpha - beta);
-  let eps = 0;
-  let p = 100;
-  const rows = [];
-  const d = new Date(Date.UTC(2007, 8, 17));
-  while (rows.length < n) {
-    d.setUTCDate(d.getUTCDate() + 1);
-    const wd = d.getUTCDay();
-    if (wd === 0 || wd === 6) continue;
-    h = omega + alpha * eps * eps + beta * h;
-    eps = Math.sqrt(h) * gauss();
-    p *= Math.exp(0.0003 + eps);
-    rows.push({ date: d.toISOString().slice(0, 10), close: p });
-  }
-  return rows;
+
+const readout = document.getElementById('readout');
+const chartRoot = document.getElementById('live-chart');
+let stored = null;
+
+function kpi(label, value, hi = false) {
+  const box = document.createElement('div');
+  box.className = hi ? 'kpi hi' : 'kpi';
+  const span = document.createElement('span');
+  span.textContent = label;
+  const strong = document.createElement('strong');
+  strong.textContent = value;
+  box.append(span, strong);
+  return box;
 }
 
-drawLive(simulatedRows());
-document.querySelector('#live .caveat').textContent = 'Simulated GARCH(1,1) prices, not market data. Illustrative only; not investment advice.';
-document.querySelector('#live h2').textContent = 'A simulated index with volatility clustering';
-document.querySelector('#live .muted').textContent = 'The chart runs the daily rule in your browser on a simulated series, so no market data is hosted here. The line is the simulated index; the bars are the exposure the rule would hold. The grey shaded area is the test period.';
+function drawLive() {
+  if (!stored) return;
+  liveChart(chartRoot, stored.series, {
+    baseline: 1000000,
+    panels: [SIP_VOL_PANELS[0], SIP_VOL_PANELS[1]],
+    tooltip: (d) => sipVolTooltip(d, 'Nifty 50'),
+  });
+}
+
+async function load() {
+  try {
+    const csv = await fetch('data/nifty.csv').then((r) => {
+      if (!r.ok) throw new Error(`data ${r.status}`);
+      return r.text();
+    });
+    const res = await fetch('api/compare', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ csv, start: '2019-01-02', months: 240, pool: 1000000, sip: 10000, window: 20, rebalance: 'monthly', cost: 0.001, cashRate: 0.065, minExposure: 0, maxExposure: 1 }),
+    });
+    if (!res.ok) throw new Error(`compare ${res.status}`);
+    const data = await res.json();
+    const { vol, sip } = data;
+    readout.replaceChildren(
+      kpi('Volatility-based, final value', lakh(vol.final), true),
+      kpi('Monthly SIP, final value', lakh(sip.final)),
+      kpi('Volatility-based, biggest fall', pct(vol.maxDrawdown)),
+      kpi('Monthly SIP, biggest fall', pct(sip.maxDrawdown)),
+    );
+    stored = data;
+    drawLive();
+  } catch {
+    readout.textContent = 'Live numbers could not be loaded. The past results page has the full back-test.';
+  }
+}
+
+let resizeTimer;
+addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(drawLive, 200);
+});
+
+load();

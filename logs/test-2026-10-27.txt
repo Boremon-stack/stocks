@@ -1,20 +1,48 @@
-✔ every NSE dataset parses with long history (23.9942ms)
-✔ parser rejects a file without date and close columns (0.479ms)
-✔ daily returns follow r = P_t / P_{t-1} - 1 (0.1469ms)
-✔ rolling variance is the mean of the last 20 squared returns (0.1707ms)
-✔ summarize: zero drawdown on a rising series, drawdown on a fall (0.322ms)
-✔ daily mode matches the independent pandas reference (Nifty 50) (4.8536ms)
-✔ monthly paper mode matches the independent pandas reference (Nifty 50) (1.7396ms)
-✔ daily exposure is capped and uses only information up to t-1 (2.7045ms)
-✔ split is about 70% and the test period is non-empty (1.5702ms)
-✔ costs never raise managed return (3.3398ms)
-✔ cpu kernel computes a*x + y (0.9204ms)
-✔ compute falls back to cpu outside a browser (0.173ms)
-ℹ tests 12
+✔ every NSE dataset parses with long history (63.804ms)
+✔ parser rejects a file without date and close columns (0.5359ms)
+✔ daily returns follow r = P_t / P_{t-1} - 1 (0.148ms)
+✔ rolling variance is the mean of the last 20 squared returns (0.1853ms)
+✔ summarize: zero drawdown on a rising series, drawdown on a fall (0.277ms)
+✔ daily exposure is capped and uses only information up to t-1 (8.731ms)
+✔ split is about 70% and the test period is non-empty (4.2011ms)
+✔ costs never raise managed return (7.9667ms)
+✔ cpu kernel computes a*x + y (0.889ms)
+✔ compute falls back to cpu outside a browser (0.2956ms)
+✔ daily mode matches the independent pandas reference field by field (Nifty 50) (4.138ms)
+✔ monthly mode matches the independent pandas reference field by field (Nifty 50) (2.6228ms)
+✔ monthly mode with full-sample normalisation (the paper) matches the reference (1.6822ms)
+✔ return statistics match the pandas and scipy reference (Nifty 50) (5.0184ms)
+✔ paper regression recovers a known alpha and beta (0.1599ms)
+✔ parser reads an NSE-style quoted, newest-first, DD-Mon-YYYY file (0.4415ms)
+✔ parser picks Close, not PREV. CLOSE, and drops duplicate dates (0.1313ms)
+✔ date formats normalise to ISO, day first for numeric dates (0.1367ms)
+✔ a reversed file gives the same backtest as the same file in order (2.5443ms)
+✔ cash earning the risk-free rate raises the daily strategy return when rf > 0 (5.6564ms)
+✔ rupee portfolio values and total cost match the reference (daily and monthly) (2.3519ms)
+✔ custom window, minimum and maximum exposure match the reference (3.4582ms)
+✔ a zero cost run pays zero cost and a higher cost pays more (6.836ms)
+✔ portfolio value follows the initial investment linearly (3.6108ms)
+✔ engine reproduces the paper market result on the paper data (alpha, beta, appraisal) (3.4888ms)
+✔ SIP versus volatility plan matches the pandas reference (nifty, 60 months, monthly reset) (4.8518ms)
+✔ SIP versus volatility plan matches the pandas reference (nifty, 60 months, daily reset) (2.6945ms)
+✔ SIP versus volatility plan matches the pandas reference (nifty, 24 months, monthly reset) (1.3372ms)
+✔ SIP versus volatility plan matches the pandas reference (nifty, max months, monthly reset) (3.8984ms)
+✔ SIP versus volatility plan matches the pandas reference (nifty, max months, daily reset) (2.2912ms)
+✔ SIP versus volatility plan matches the pandas reference (banknifty, max months, monthly reset) (2.8787ms)
+✔ SIP makes one purchase a month of exactly the monthly amount and the pool never goes negative (1.7504ms)
+✔ monthly reset changes the weight at most once per calendar month (1.6931ms)
+✔ the volatility plan holds less when the 20-day volatility is high (1.5368ms)
+✔ paper statistics match the pandas and statsmodels reference (nifty, 2019 to 2026) (2.0119ms)
+✔ paper statistics match the pandas and statsmodels reference (banknifty, 2019 to 2026) (1.1196ms)
+✔ the managed series has the original volatility by construction (paper normalisation) (0.9302ms)
+✔ quintile groups partition the months exactly and are ordered by lagged variance (0.7063ms)
+✔ isoDateOrNull accepts real ISO dates only (0.1148ms)
+✔ the API routes honour the start and from dates (through a real handler call) (15.6645ms)
+ℹ tests 40
 ℹ suites 0
-ℹ pass 12
+ℹ pass 40
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 134.693
+ℹ duration_ms 298.8046
