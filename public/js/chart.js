@@ -98,7 +98,9 @@ export function liveChart(root, series, { baseline = null, panels = SIP_VOL_PANE
   const width = Math.max(280, wrap.clientWidth || root.clientWidth || 600);
   const n = series.length;
   const plotW = width - PAD.l - PAD.r;
-  const x = (i) => PAD.l + (i / Math.max(1, n - 1)) * plotW;
+  const ts = series.map((d) => Date.parse(`${d.date}T00:00:00Z`));
+  const span = Math.max(1, ts[n - 1] - ts[0]);
+  const x = (i) => PAD.l + ((ts[i] - ts[0]) / span) * plotW;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const yearTicks = [];
@@ -162,7 +164,7 @@ export function liveChart(root, series, { baseline = null, panels = SIP_VOL_PANE
     }
     yearTicks.forEach((t, k) => {
       if (k % skip) return;
-      const xx = x(t.i);
+      const xx = PAD.l + ((Math.max(ts[0], Date.parse(`${t.label}-01-01T00:00:00Z`)) - ts[0]) / span) * plotW;
       el('line', { x1: xx, x2: xx, y1: p.height - PAD.b, y2: p.height - PAD.b + 4, stroke: 'var(--muted)' }, svg);
       const lab = el('text', { x: xx, y: p.height - 5, 'text-anchor': 'middle', class: 'lc-axis' }, svg);
       lab.textContent = t.label;
@@ -245,8 +247,16 @@ export function liveChart(root, series, { baseline = null, panels = SIP_VOL_PANE
     const rect = built[0].svg.getBoundingClientRect();
     const px = e.clientX - rect.left;
     if (px < PAD.l - 6 || px > width - PAD.r + 6) return hide();
-    const i = Math.round(((px - PAD.l) / plotW) * (n - 1));
-    show(Math.min(n - 1, Math.max(0, i)));
+    const target = ts[0] + ((px - PAD.l) / plotW) * span;
+    let lo = 0;
+    let hi = n - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (ts[mid] < target) lo = mid + 1;
+      else hi = mid;
+    }
+    const i = lo > 0 && target - ts[lo - 1] < ts[lo] - target ? lo - 1 : lo;
+    show(i);
     const wrapRect = wrap.getBoundingClientRect();
     tip.style.top = `${Math.max(0, e.clientY - wrapRect.top - tip.offsetHeight - 14)}px`;
   });

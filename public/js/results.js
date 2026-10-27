@@ -6,15 +6,15 @@ const TABS = ['live', 'compare', 'stats', 'data'];
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const LIST_CAP = 400;
 const LIVE_KEYS = ['dcaEquity', 'vmEquity', 'dcaDd', 'vmDd', 'priorMonthVol', 'dcaShare', 'vmShare', 'vmTarget'];
-const CMP_KEYS = ['nPrice', 'bPrice', 'nDca', 'bDca', 'nVm', 'bVm', 'nVmDd', 'bVmDd', 'nVmTarget', 'bVmTarget'];
+const CMP_KEYS = ['nPrice', 'bPrice', 'nDca', 'bDca', 'nVm', 'bVm', 'nVmDd', 'bVmDd', 'nDcaDd', 'bDcaDd', 'nVmTarget', 'bVmTarget'];
 const SETTING_IDS = ['monthly', 'maxExp', 'costBps', 'from', 'to'];
 const PAIR = (nk, bk) => [{ key: nk, color: 'var(--nifty)', label: 'Nifty 50' }, { key: bk, color: 'var(--bank)', label: 'Bank Nifty' }];
 const pctAxis = (v) => `${(v * 100).toFixed(0)}%`;
 const CMP_PANELS = [
   { id: 'value', title: 'Volatility-managed portfolio value', height: 250, lines: PAIR('nVm', 'bVm'), axisFmt: (v) => lakh(v).replace(' ', '') },
   { id: 'dca', title: 'Monthly DCA portfolio value', height: 200, lines: PAIR('nDca', 'bDca'), axisFmt: (v) => lakh(v).replace(' ', '') },
-  { id: 'dd', title: 'Fall from the previous high (volatility-managed)', height: 130, lines: PAIR('nVmDd', 'bVmDd'), axisFmt: pctAxis, zeroMax: true },
-  { id: 'vmTarget', title: 'VM target exposure', height: 130, lines: PAIR('nVmTarget', 'bVmTarget'), axisFmt: pctAxis, fixed: [0, 1] },
+  { id: 'ddDca', title: 'Drawdown over time: monthly DCA (fall from the previous high of the NAV)', height: 170, lines: PAIR('nDcaDd', 'bDcaDd'), axisFmt: pctAxis, fixed: [-0.5, 0] },
+  { id: 'dd', title: 'Drawdown over time: volatility-managed (fall from the previous high of the NAV)', height: 170, lines: PAIR('nVmDd', 'bVmDd'), axisFmt: pctAxis, fixed: [-0.5, 0] },
 ];
 const PAPER_ROWS = [
   ['Annualised alpha', (p) => pct(p.alphaAnnual, 2)],
@@ -179,6 +179,7 @@ function mergeSeries(sa, sb) {
       nDca: x.dcaEquity, bDca: y.dcaEquity,
       nVm: x.vmEquity, bVm: y.vmEquity,
       nVmDd: x.vmDd, bVmDd: y.vmDd,
+      nDcaDd: x.dcaDd, bDcaDd: y.dcaDd,
       nVmTarget: x.vmTarget, bVmTarget: y.vmTarget,
     };
   });
@@ -534,7 +535,8 @@ const cmpTooltip = (d) => ({
     { label: 'Bank Nifty volatility-managed', value: lakh(d.bVm), color: 'var(--bank)' },
     { label: 'Nifty 50 monthly DCA', value: lakh(d.nDca), color: 'var(--nifty)' },
     { label: 'Bank Nifty monthly DCA', value: lakh(d.bDca), color: 'var(--bank)' },
-    { label: 'Fall from high, VM (Nifty vs Bank)', value: `${pct(d.nVmDd)} vs ${pct(d.bVmDd)}` },
+    { label: 'Drawdown, DCA (Nifty vs Bank)', value: `${pct(d.nDcaDd)} vs ${pct(d.bDcaDd)}` },
+    { label: 'Drawdown, VM (Nifty vs Bank)', value: `${pct(d.nVmDd)} vs ${pct(d.bVmDd)}` },
     { label: 'VM target (Nifty vs Bank)', value: `${pct(d.nVmTarget, 0)} / ${pct(d.bVmTarget, 0)}` },
   ],
 });
@@ -680,7 +682,11 @@ function renderCompare({ n, b, merged }) {
   const chart = $('cmpChart');
   const rows = chartRows(merged, CMP_KEYS);
   if (rows.length < 2) chart.textContent = 'No dates in common between the two series.';
-  else liveChart(chart, rows, { panels: CMP_PANELS, tooltip: cmpTooltip });
+  else {
+    const floor = Math.floor(Math.min(...rows.flatMap((d) => [d.nDcaDd, d.bDcaDd, d.nVmDd, d.bVmDd])) * 10) / 10;
+    const panels = CMP_PANELS.map((p) => (p.fixed ? { ...p, fixed: [floor, 0] } : p));
+    liveChart(chart, rows, { panels, tooltip: cmpTooltip });
+  }
   renderCmpExtras(n, b, rho);
 }
 
