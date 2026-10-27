@@ -24,7 +24,9 @@ html, body { background: var(--paper); }
 body {
   margin: 0;
   color: var(--ink);
-  font: 400 16px/1.6 var(--sans);
+  font: 400 17px/1.6 var(--sans);
+  font-feature-settings: "cv11", "ss01";
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -52,13 +54,13 @@ a:hover { text-decoration: underline; }
 .btn.ghost:hover { background: var(--paper-2); color: var(--ink); }
 .btn:disabled { opacity: 0.5; cursor: default; }
 
-h1, h2, h3 { font-family: var(--sans); font-weight: 700; letter-spacing: -0.035em; margin: 0; }
-h1 { font-size: clamp(2.6rem, 6vw, 4.2rem); line-height: 1.02; }
+h1, h2, h3 { font-family: var(--sans); font-weight: 650; letter-spacing: -0.03em; margin: 0; }
+h1 { font-size: clamp(2.5rem, 6vw, 4.1rem); line-height: 1.04; letter-spacing: -0.045em; }
 h2 { font-size: clamp(1.6rem, 3vw, 2.1rem); line-height: 1.1; margin-bottom: 10px; }
 h3 { font-size: 1.1rem; letter-spacing: -0.01em; margin-bottom: 6px; }
 p { margin: 0 0 14px; }
 .eyebrow { font: 600 12px/1 var(--sans); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
-.lede { font-size: 1.15rem; color: var(--ink-2); max-width: 36em; }
+.lede { font-size: 1.2rem; line-height: 1.55; color: var(--ink-2); max-width: 34em; }
 .muted { color: var(--muted); }
 
 .formula {
