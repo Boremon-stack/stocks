@@ -13,7 +13,7 @@ const types = {
   '.svg': 'image/svg+xml',
 };
 const load = async (name) => (await import(pathToFileURL(fileURLToPath(new URL(`../api/${name}.js`, import.meta.url))).href)).default;
-const routes = { '/api/backtest': await load('backtest'), '/api/compare': await load('compare'), '/api/study': await load('study') };
+const routes = { '/api/backtest': await load('backtest'), '/api/study': await load('study'), '/api/dcavm': await load('dcavm') };
 
 function shim(res) {
   res.status = (code) => ((res.statusCode = code), res);

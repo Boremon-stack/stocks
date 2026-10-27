@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Past results · Volatility Lab</title>
-  <meta name="description" content="Nifty 50 and Bank Nifty, 2019 to 2026: a monthly SIP against volatility-based investing, with the statistics from Moreira and Muir (2017).">
+  <meta name="description" content="₹10,000 a month into a plain monthly plan and a volatility-managed plan on Nifty 50 and Bank Nifty, 2020 to 2025: the owner's own method, with every number and investment shown.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,53 +24,31 @@
 
 <main class="container">
   <section style="padding-top:36px">
-    <p class="eyebrow">Nifty 50 · Bank Nifty · daily closes · 2019 to 2026</p>
+    <p class="eyebrow">Nifty 50 · Bank Nifty · daily closes · 2020 to 2025</p>
     <h1>Past results</h1>
-    <p class="lede" style="margin-top:14px">A ₹10,00,000 pool, invested two ways. Put in ₹10,000 every month, or hold a smaller or larger share of the pool in the index, never more than all of it, depending on how rough the last 20 trading days were. Real daily prices, back-tested.</p>
+    <p class="lede" style="margin-top:14px">Every month, ₹10,000 goes into two plans on the first trading day of the month. The monthly DCA plan invests it at once. The volatility-managed plan sets how much of its money is in the index from the previous month's realized variance, and keeps the rest in cash, which earns nothing. Both plans use the same money and the same prices.</p>
   </section>
 
   <div class="controls">
-    <div class="field">
-      <span>Index</span>
-      <div class="seg" id="index" role="group" aria-label="Index">
-        <button type="button" data-v="nifty" aria-pressed="true">Nifty 50</button>
-        <button type="button" data-v="banknifty" aria-pressed="false">Bank Nifty</button>
-      </div>
-    </div>
-    <div class="field">
-      <span>Period</span>
-      <div class="seg" id="range" role="group" aria-label="Period">
-        <button type="button" data-v="1y" aria-pressed="false">1Y</button>
-        <button type="button" data-v="2y" aria-pressed="false">2Y</button>
-        <button type="button" data-v="3y" aria-pressed="false">3Y</button>
-        <button type="button" data-v="5y" aria-pressed="false">5Y</button>
-        <button type="button" data-v="max" aria-pressed="true">2019 to now</button>
-      </div>
-    </div>
+    <label class="field">Index
+      <select id="index">
+        <option value="nifty50" selected>Nifty 50</option>
+        <option value="banknifty">Bank Nifty</option>
+      </select>
+    </label>
   </div>
 
   <details class="more">
     <summary>Settings and your own data</summary>
     <div class="settings">
-      <label class="field">Pool (₹)<input id="pool" type="number" min="10000" step="10000" value="1000000"></label>
-      <label class="field">Monthly amount (₹)<input id="sip" type="number" min="0" step="1000" value="10000"></label>
-      <label class="field">Volatility window (days)<input id="window" type="number" min="5" max="250" step="1" value="20"></label>
-      <label class="field">Reset exposure
-        <select id="rebalance"><option value="monthly">Once a month</option><option value="daily">Every day</option></select>
-      </label>
-      <label class="field">Scale the share by
-        <select id="scaling"><option value="variance">Variance (the paper)</option><option value="volatility">Volatility (the paper's alternative)</option></select>
-      </label>
-      <label class="field">Constant c
-        <select id="calibration"><option value="paper">Set over the whole period (as the paper does)</option><option value="average">Running average of variance (no hindsight)</option></select>
-      </label>
-      <label class="field">Most in index (%, the pool cannot borrow)<input id="maxExp" type="number" min="0" max="100" step="5" value="100"></label>
-      <label class="field">Least in index (%)<input id="minExp" type="number" min="0" max="100" step="5" value="0"></label>
-      <label class="field">Cost of trading (%)<input id="cost" type="number" min="0" max="5" step="0.01" value="0.10"></label>
-      <label class="field">Idle cash and risk-free (% a year)<input id="cash" type="number" min="0" max="50" step="0.1" value="0"></label>
+      <label class="field">Monthly amount (₹)<input id="monthly" type="number" min="1" step="1000" value="10000"></label>
+      <label class="field">Most in index (%)<input id="maxExp" type="number" min="1" max="100" step="1" value="100"></label>
+      <label class="field">Cost per trade (bp)<input id="costBps" type="number" min="0" max="100" step="1" value="0"></label>
+      <label class="field">From (optional)<input id="from" type="date"></label>
+      <label class="field">To (optional)<input id="to" type="date"></label>
       <label class="field">Your own CSV (replaces the selected index)<input id="file" type="file" accept=".csv,text/csv"></label>
     </div>
-    <p class="note" style="margin-top:10px">A CSV needs a date column and a close column. Dates may be 27-Oct-2025, 27-10-2025 or 2025-10-27, in any order.</p>
+    <p class="note" style="margin-top:10px">A CSV needs a date column and a close column. Dates may be 27-Oct-2025, 27-10-2025 or 2025-10-27, in any order. Your file is used on the live chart and the statistics tab.</p>
   </details>
   <div class="status" id="status" role="status"></div>
 
@@ -78,19 +56,48 @@
     <button role="tab" id="t-live" aria-selected="true" aria-controls="tab-live">Live chart</button>
     <button role="tab" id="t-compare" aria-selected="false" aria-controls="tab-compare">Nifty 50 vs Bank Nifty</button>
     <button role="tab" id="t-stats" aria-selected="false" aria-controls="tab-stats">Statistics</button>
-    <button role="tab" id="t-sweep" aria-selected="false" aria-controls="tab-sweep">Parameter sweep</button>
+    <button role="tab" id="t-data" aria-selected="false" aria-controls="tab-data">All data</button>
   </div>
 
   <section id="tab-live" class="panel" role="tabpanel" aria-labelledby="t-live" style="padding-top:24px">
     <div class="card"><p class="verdict" id="verdict">Loading real daily prices…</p></div>
+    <div class="plan-grid" id="cards" hidden></div>
     <div class="card" style="margin-top:16px">
       <div class="scroll-x"><table class="cmp" id="kpis"></table></div>
     </div>
+    <div class="card" id="controlCard" style="margin-top:16px" hidden></div>
     <div class="card" style="margin-top:16px">
       <div id="chart" style="min-height:300px"></div>
+      <p class="note" id="chartNote" style="margin-top:6px"></p>
       <p class="note" style="margin-top:6px">Move over the chart to read exact values for any day.</p>
     </div>
-    <p style="margin-top:14px"><button class="btn ghost" id="download" type="button">Download daily results (CSV)</button></p>
+    <details class="more" id="howDetails" style="margin-top:16px">
+      <summary>How each number is calculated</summary>
+      <div id="howBody"></div>
+    </details>
+    <details class="more" id="ddDetails">
+      <summary>The three biggest falls</summary>
+      <div id="ddBody"></div>
+    </details>
+    <details class="more" id="tradesDetails">
+      <summary>Every investment, with dates and amounts</summary>
+      <div id="tradesBody"></div>
+    </details>
+    <details class="more" id="diffDetails">
+      <summary>How this differs from the paper</summary>
+      <ul class="note" style="margin-top:10px">
+        <li style="margin:8px 0"><b>Method.</b> This is a practical monthly-contribution adaptation, not an exact replication of Moreira and Muir (2017). The paper scales the excess return of a factor with a constant c matched to the unmanaged volatility.</li>
+        <li style="margin:8px 0"><b>Contributions.</b> Money is added every month, so the volatility plan starts with little in the index. The paper has no monthly contributions.</li>
+        <li style="margin:8px 0"><b>Target.</b> The target uses last month's realized variance (sum of squared daily returns), inverted and divided by the average of all earlier months' inverse variance, capped at 100%. The paper scales with its own full-sample constant, which uses hindsight.</li>
+        <li style="margin:8px 0"><b>Cash.</b> Idle cash earns 0%. No risk-free rate is used, so the Sharpe ratio has a risk-free rate of 0.</li>
+        <li style="margin:8px 0"><b>Prices.</b> Price indices without dividends, for both plans.</li>
+        <li style="margin:8px 0"><b>Sample.</b> The sample is about 72 monthly observations against the paper's 1,065 (2020 to 2025 for the bundled data). Treat the result as one short sample.</li>
+      </ul>
+    </details>
+    <p style="margin-top:14px">
+      <button class="btn ghost" id="download" type="button">Download daily results (CSV)</button>
+      <button class="btn ghost" id="downloadTrades" type="button">Download every investment (CSV)</button>
+    </p>
   </section>
 
   <section id="tab-compare" class="panel" role="tabpanel" aria-labelledby="t-compare" hidden style="padding-top:24px">
@@ -105,10 +112,10 @@
     <p style="margin-top:14px"><button class="btn ghost" id="downloadStats" type="button">Download statistics (JSON)</button></p>
   </section>
 
-  <section id="tab-sweep" class="panel" role="tabpanel" aria-labelledby="t-sweep" hidden style="padding-top:24px"><div id="sweepRoot"></div></section>
+  <section id="tab-data" class="panel" role="tabpanel" aria-labelledby="t-data" hidden style="padding-top:24px"><div id="dataRoot"></div></section>
 
   <footer class="site">
-    Daily closes of the Nifty 50 and Nifty Bank indices from Yahoo Finance (^NSEI, ^NSEBANK), price indices without dividends. Method: Moreira and Muir, <em>Volatility-Managed Portfolios</em>, Journal of Finance (2017). Historical back-test, not investment advice.
+    Nifty 50 and Bank Nifty closes: official NSE files supplied by the owner (2020 to 2025). Price indices without dividends. Method: Moreira and Muir, <em>Volatility-Managed Portfolios</em>, Journal of Finance (2017), adapted to monthly contributions. Historical back-test, not investment advice.
   </footer>
 </main>
 

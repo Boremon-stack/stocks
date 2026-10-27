@@ -510,17 +510,6 @@ export function drawdownSeries(returns) {
   });
 }
 
-export function startIndexFor(rows, months, window, explicitStart = null) {
-  const last = rows[rows.length - 1].date;
-  const total = Number(last.slice(0, 4)) * 12 + (Number(last.slice(5, 7)) - 1) - (months - 1);
-  const y = Math.floor(total / 12);
-  const m = (total % 12) + 1;
-  const startDate = explicitStart ?? `${y}-${String(m).padStart(2, '0')}-01`;
-  let s0 = rows.findIndex((d) => d.date >= startDate);
-  if (s0 < 0) s0 = rows.length - 1;
-  return { s0: Math.max(s0, window), requested: startDate, moved: s0 < window };
-}
-
 function xirr(flows) {
   const t0 = flows[0].t;
   const f = (rate) => flows.reduce((a, c) => a + c.amount / (1 + rate) ** ((c.t - t0) / 365), 0);
@@ -573,40 +562,6 @@ function drawdownEpisodesOf(dd, dates) {
   return out;
 }
 
-function planMetrics(V, dd, share, P0, dates, fees, rfd, indexGain, interest) {
-  const L = V.length;
-  const rho = [];
-  for (let k = 1; k < L; k++) rho.push(V[k] / V[k - 1] - 1);
-  const final = V[L - 1];
-  const years = (Date.parse(dates[L - 1]) - Date.parse(dates[0])) / 86400000 / 365.25;
-  const meanDaily = mean(rho);
-  const sdDaily = sd(rho);
-  const cagr = (final / P0) ** (1 / years) - 1;
-  const maxDrawdown = dd.reduce((a, x) => Math.min(a, x), 0);
-  const episodes = drawdownEpisodesOf(dd, dates);
-  const longestUnderwaterDays = episodes.reduce((a, e) => Math.max(a, e.tradingDaysUnder), 0);
-  const deepest = [...episodes].sort((a, b) => a.depth - b.depth).slice(0, 3);
-  return {
-    final,
-    profit: final - P0,
-    returnPct: final / P0 - 1,
-    cagr,
-    annVol: sdDaily * Math.sqrt(252),
-    sharpe: sdDaily === 0 ? 0 : ((meanDaily - rfd) / sdDaily) * Math.sqrt(252),
-    calmar: maxDrawdown === 0 ? null : cagr / Math.abs(maxDrawdown),
-    sharpeParts: { meanDaily, sdDaily, rfd, years, annReturnArithmetic: meanDaily * 252 },
-    maxDrawdown,
-    troughDate: deepest.length ? deepest[0].troughDate : null,
-    longestUnderwaterDays,
-    worstDay: rho.reduce((a, x) => Math.min(a, x), Infinity),
-    bestDay: rho.reduce((a, x) => Math.max(a, x), -Infinity),
-    avgExposure: mean(share),
-    costTotal: fees,
-    drawdownEpisodes: deepest,
-    components: { indexGain, interest, costs: fees },
-  };
-}
-
 const percentileOf = (sorted, q) => {
   const pos = (q / 100) * (sorted.length - 1);
   const lo = Math.floor(pos);
@@ -655,294 +610,6 @@ const VARIANT_SPECS = [
   { key: 'variance_cap1_5', label: 'Variance, cap 1.5 (50% leverage)', scaling: 'variance', cap: 1.5 },
   { key: 'variance_cap1', label: 'Variance, no leverage', scaling: 'variance', cap: 1 },
 ];
-
-function isResetDay(D, s0, rebalance, i) {
-  return i >= s0 && i <= D.length - 2 && (i === s0 || rebalance === 'daily' || D[i + 1].slice(0, 7) !== D[i].slice(0, 7));
-}
-
-function runLedger(P, D, s0, pool, cost, rfd, rebalance, shareAt) {
-  const last = P.length - 1;
-  let cash = pool;
-  let units = 0;
-  let fees = 0;
-  let interest = 0;
-  let indexGain = 0;
-  let resets = 0;
-  let totalBought = 0;
-  let totalSold = 0;
-  let buys = 0;
-  let sells = 0;
-  const tradeList = [];
-  const decisionDays = [];
-  const days = [];
-  for (let i = s0; i <= last; i++) {
-    const p = P[i];
-    if (i > s0) {
-      const iv = cash * rfd;
-      cash += iv;
-      interest += iv;
-      indexGain += units * (p - P[i - 1]);
-    }
-    let trade = 0;
-    let fee = 0;
-    if (isResetDay(D, s0, rebalance, i)) {
-      resets++;
-      decisionDays.push(i);
-      const V = cash + units * p;
-      const target = shareAt(i) * V;
-      const current = units * p;
-      const delta = target - current;
-      if (Math.abs(delta) >= 1e-9) {
-        let a;
-        let side;
-        if (delta > 0) {
-          a = Math.min(delta, cash / (1 + cost));
-          fee = cost * a;
-          units += a / p;
-          cash -= a + fee;
-          side = 'buy';
-          totalBought += a;
-          buys++;
-          trade = a;
-        } else {
-          a = -delta;
-          fee = cost * a;
-          units -= a / p;
-          cash += a - fee;
-          side = 'sell';
-          totalSold += a;
-          sells++;
-          trade = -a;
-        }
-        fees += fee;
-        tradeList.push({ date: D[i], side, amount: a, price: p, fee, units: a / p, shareAfter: (units * p) / (cash + units * p) });
-      }
-    }
-    const value = cash + units * p;
-    days.push({ value, inIndex: units * p, share: (units * p) / value, trade, fee });
-  }
-  const inV = days.map((d) => d.inIndex);
-  const shV = days.map((d) => d.share);
-  const investments = {
-    trades: tradeList.length,
-    buys,
-    sells,
-    totalBought,
-    totalSold,
-    netPutIn: totalBought - totalSold,
-    turnover: totalBought + totalSold,
-    fees,
-    averageInIndex: mean(inV),
-    peakInIndex: inV.reduce((a, x) => Math.max(a, x), -Infinity),
-    lowestInIndex: inV.reduce((a, x) => Math.min(a, x), Infinity),
-    finalIndexValue: units * P[last],
-    cashLeft: cash,
-    resets,
-    averageShare: mean(shV),
-  };
-  return { days, decisionDays, tradeList, investments, indexGain, interest, fees };
-}
-
-export function compareSipVsVol(
-  rows,
-  {
-    pool = 1000000,
-    sip = 10000,
-    window = WINDOW,
-    minExposure = 0,
-    maxExposure = 1,
-    cost = 0.001,
-    cashRate = 0,
-    months = 60,
-    rebalance = 'monthly',
-    startDate = null,
-    scaling = 'variance',
-    calibration = 'paper',
-  } = {},
-) {
-  if (scaling !== 'variance' && scaling !== 'volatility') throw new Error(`unknown scaling: ${scaling}`);
-  if (calibration !== 'paper' && calibration !== 'average') throw new Error(`unknown calibration: ${calibration}`);
-  const n = rows.length;
-  const P = rows.map((d) => d.close);
-  const D = rows.map((d) => d.date);
-  const month = (i) => D[i].slice(0, 7);
-  const r = [NaN];
-  for (let i = 1; i < n; i++) r.push(P[i] / P[i - 1] - 1);
-  const v = new Array(n).fill(NaN);
-  for (let t = window; t < n; t++) {
-    let s = 0;
-    for (let i = t - window + 1; i <= t; i++) s += r[i] * r[i];
-    v[t] = s / window;
-  }
-  const cbar = new Array(n).fill(NaN);
-  let vSum = 0;
-  for (let t = window; t < n; t++) {
-    vSum += v[t];
-    cbar[t] = vSum / (t - window + 1);
-  }
-  const rfd = cashRate / 252;
-  const { s0, requested, moved } = startIndexFor(rows, months, window, startDate);
-  const lo = Math.min(minExposure, maxExposure);
-  const hi = maxExposure;
-  const last = n - 1;
-  const rawOf = (t) => (scaling === 'volatility' ? 1 / Math.sqrt(v[t]) : 1 / v[t]);
-
-  let c = NaN;
-  if (calibration === 'paper') {
-    const fs = [];
-    const gs = [];
-    let R = s0;
-    for (let s = s0 + 1; s < n; s++) {
-      if (isResetDay(D, s0, rebalance, s - 1)) R = s - 1;
-      if (!(v[R] > 0)) continue;
-      const f = r[s] - rfd;
-      fs.push(f);
-      gs.push(rawOf(R) * f);
-    }
-    c = sd(fs) / sd(gs);
-  }
-  const uncapped = (t) => {
-    if (v[t] === 0) return Infinity;
-    if (calibration === 'paper') return c * rawOf(t);
-    const q = cbar[t] / v[t];
-    return scaling === 'volatility' ? Math.sqrt(q) : q;
-  };
-  const shareAt = (t) => clamp(uncapped(t), lo, hi);
-
-  const volLedger = runLedger(P, D, s0, pool, cost, rfd, rebalance, shareAt);
-  const ctlShare = clamp(volLedger.investments.averageShare, lo, hi);
-  const ctlLedger = runLedger(P, D, s0, pool, cost, rfd, rebalance, () => ctlShare);
-
-  let cashS = pool;
-  let unitsS = 0;
-  let feesS = 0;
-  let interestS = 0;
-  let indexGainS = 0;
-  let totalPutIn = 0;
-  const purchaseList = [];
-  const flows = [];
-  const sipDays = [];
-  for (let i = s0; i < n; i++) {
-    const p = P[i];
-    if (i > s0) {
-      const isInt = cashS * rfd;
-      cashS += isInt;
-      interestS += isInt;
-      indexGainS += unitsS * (p - P[i - 1]);
-    }
-    let sipBuy = 0;
-    let sipFee = 0;
-    if (i === s0 || month(i) !== month(i - 1)) {
-      const a = Math.min(sip, cashS / (1 + cost));
-      sipFee = cost * a;
-      unitsS += a / p;
-      cashS -= a + sipFee;
-      feesS += sipFee;
-      totalPutIn += a;
-      sipBuy = a;
-      purchaseList.push({ date: D[i], amount: a, price: p, fee: sipFee, units: a / p });
-      flows.push({ t: Date.parse(D[i]) / 86400000, amount: -(a + sipFee) });
-    }
-    const valS = cashS + unitsS * p;
-    sipDays.push({ value: valS, inIndex: unitsS * p, share: (unitsS * p) / valS, buy: sipBuy, fee: sipFee });
-  }
-
-  const dates = D.slice(s0);
-  const Vv = volLedger.days.map((d) => d.value);
-  const Vs = sipDays.map((d) => d.value);
-  const Vc = ctlLedger.days.map((d) => d.value);
-  const ddV = drawdownOf(Vv, pool);
-  const ddS = drawdownOf(Vs, pool);
-  const ddC = drawdownOf(Vc, pool);
-
-  const volMetrics = planMetrics(Vv, ddV, volLedger.days.map((d) => d.share), pool, dates, volLedger.fees, rfd, volLedger.indexGain, volLedger.interest);
-  const sipMetrics = planMetrics(Vs, ddS, sipDays.map((d) => d.share), pool, dates, feesS, rfd, indexGainS, interestS);
-  const ctlMetrics = planMetrics(Vc, ddC, ctlLedger.days.map((d) => d.share), pool, dates, ctlLedger.fees, rfd, ctlLedger.indexGain, ctlLedger.interest);
-
-  const sipFlows = [...flows, { t: Date.parse(D[last]) / 86400000, amount: unitsS * P[last] }];
-  const sipInvestments = {
-    purchases: purchaseList.length,
-    perPurchase: sip,
-    totalPutIn,
-    fees: feesS,
-    units: unitsS,
-    averageBuyPrice: totalPutIn / unitsS,
-    finalIndexValue: unitsS * P[last],
-    cashLeft: cashS,
-    moneyWeightedReturn: xirr(sipFlows),
-  };
-
-  const decided = volLedger.decisionDays.map(uncapped);
-  const capped = decided.map((x) => clamp(x, lo, hi));
-  const weights = {
-    count: decided.length,
-    uncapped: distOf(decided),
-    capped: distOf(capped),
-    shareAtCap: decided.filter((x) => x >= hi).length / decided.length,
-  };
-  const avgAbsWeightChange = avgAbsChange(capped);
-
-  const diff = (a, b) => (a == null || b == null ? null : a - b);
-  const timingEffect = {
-    finalDiff: volMetrics.final - ctlMetrics.final,
-    sharpeDiff: volMetrics.sharpe - ctlMetrics.sharpe,
-    maxDrawdownDiff: volMetrics.maxDrawdown - ctlMetrics.maxDrawdown,
-    calmarDiff: diff(volMetrics.calmar, ctlMetrics.calmar),
-  };
-
-  const series = Vv.map((value, k) => {
-    const i = s0 + k;
-    return {
-      date: D[i],
-      close: P[i],
-      vol: Math.sqrt(v[i] * 252),
-      volWeight: volLedger.days[k].share,
-      sipExposure: sipDays[k].share,
-      volInIndex: volLedger.days[k].inIndex,
-      sipInIndex: sipDays[k].inIndex,
-      sipValue: sipDays[k].value,
-      volValue: value,
-      sipCost: sipDays[k].fee,
-      volCost: volLedger.days[k].fee,
-      volTrade: volLedger.days[k].trade,
-      sipBuy: sipDays[k].buy,
-      ctlValue: Vc[k],
-      ctlInIndex: ctlLedger.days[k].inIndex,
-      volDd: ddV[k],
-      sipDd: ddS[k],
-      ctlDd: ddC[k],
-    };
-  });
-
-  const rhoV = Vv.slice(1).map((x, k) => x / Vv[k] - 1);
-  const L = Vv.length;
-  const regression = L - 1 > 30
-    ? paperTest(
-        rhoV.map((x) => x - rfd),
-        Array.from({ length: L - 1 }, (_, j) => r[s0 + 1 + j] - rfd),
-        252,
-      )
-    : null;
-
-  return {
-    c: calibration === 'paper' ? c : null,
-    params: { pool, sip, window, minExposure: lo, maxExposure, cost, cashRate, months, rebalance, scaling, calibration },
-    period: {
-      from: D[s0],
-      to: D[last],
-      days: n - s0,
-      requested,
-      moved,
-      niftyChange: P[last] / P[s0] - 1,
-    },
-    sip: { ...sipMetrics, investments: sipInvestments, purchaseList },
-    vol: { ...volMetrics, investments: volLedger.investments, tradeList: volLedger.tradeList, weights, avgAbsWeightChange },
-    control: { share: ctlShare, ...ctlMetrics, investments: ctlLedger.investments, tradeList: ctlLedger.tradeList },
-    timingEffect,
-    regression,
-    series,
-  };
-}
 
 function corr(x, y) {
   const mx = mean(x);
@@ -1099,4 +766,288 @@ export function paperStudyFromMonthly(excess, rv, { keys = null, rf = 0 } = {}) 
 
 export function isoDateOrNull(value) {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && toIsoDate(value) === value ? value : null;
+}
+
+const monthKeyOf = (date) => date.slice(0, 7);
+
+function prevMonthKeyOf(key) {
+  const t = Number(key.slice(0, 4)) * 12 + (Number(key.slice(5, 7)) - 1) - 1;
+  return `${Math.floor(t / 12)}-${pad((t % 12) + 1)}`;
+}
+
+function navOf(ret) {
+  const nav = [1];
+  for (let i = 1; i < ret.length; i++) nav.push(ret[i] === null ? nav[i - 1] : nav[i - 1] * (1 + ret[i]));
+  return nav;
+}
+
+function cashFlowReturns(eq, flow) {
+  return eq.map((e, i) => (i > 0 && eq[i - 1] > 0 ? (e - flow[i]) / eq[i - 1] - 1 : null));
+}
+
+function dcaLedger(D, P, contribAmt, costBps) {
+  let shares = 0;
+  let cash = 0;
+  return P.map((price, i) => {
+    cash += contribAmt[i];
+    const buy = cash;
+    const cost = (buy * costBps) / 10000;
+    const bought = Math.max(buy - cost, 0) / price;
+    shares += bought;
+    cash = 0;
+    const inIndex = shares * price;
+    return { date: D[i], price, contribution: contribAmt[i], buy, cost, bought, shares, cash, inIndex, equity: inIndex + cash };
+  });
+}
+
+function vmLedger(D, P, contribAmt, costBps, targetAt) {
+  let shares = 0;
+  let cash = 0;
+  const days = [];
+  const tradeList = [];
+  for (let i = 0; i < P.length; i++) {
+    const price = P[i];
+    const contribution = contribAmt[i];
+    cash += contribution;
+    const target = targetAt(i);
+    let trade = 0;
+    let buy = 0;
+    let sell = 0;
+    let cost = 0;
+    if (contribution > 0) {
+      const currentValue = shares * price;
+      const targetValue = (currentValue + cash) * target;
+      trade = targetValue - currentValue;
+      if (trade > 0) {
+        buy = Math.min(trade, cash);
+        cost = (buy * costBps) / 10000;
+        shares += Math.max(buy - cost, 0) / price;
+        cash -= buy;
+      } else if (trade < 0) {
+        sell = Math.min(-trade, currentValue);
+        cost = (sell * costBps) / 10000;
+        shares -= sell / price;
+        cash += sell - cost;
+      }
+    }
+    const inIndex = shares * price;
+    const equity = inIndex + cash;
+    if (Math.abs(trade) > 1e-9) {
+      tradeList.push({
+        date: D[i],
+        side: trade > 0 ? 'buy' : 'sell',
+        value: trade > 0 ? buy : sell,
+        price,
+        fee: cost,
+        shareAfter: equity > 0 ? inIndex / equity : 0,
+        target,
+      });
+    }
+    days.push({ date: D[i], contribution, target, buy, sell, cost, shares, cash, inIndex, equity });
+  }
+  return { days, tradeList };
+}
+
+function ledgerInvestments(days, tradeList) {
+  const contribDays = days.filter((d) => d.contribution > 0);
+  const inIdx = days.map((d) => d.inIndex);
+  const totalBought = days.reduce((a, d) => a + d.buy, 0);
+  const totalSold = days.reduce((a, d) => a + d.sell, 0);
+  const last = days[days.length - 1];
+  return {
+    contributions: contribDays.length,
+    totalContributions: contribDays.reduce((a, d) => a + d.contribution, 0),
+    rebalances: contribDays.length,
+    trades: tradeList.length,
+    buys: tradeList.filter((t) => t.side === 'buy').length,
+    sells: tradeList.filter((t) => t.side === 'sell').length,
+    totalBought,
+    totalSold,
+    turnover: totalBought + totalSold,
+    fees: days.reduce((a, d) => a + d.cost, 0),
+    averageTargetExposure: mean(contribDays.map((d) => d.target)),
+    averageInIndex: mean(inIdx),
+    peakInIndex: Math.max(...inIdx),
+    lowestInIndex: Math.min(...inIdx),
+    finalIndexValue: last.inIndex,
+    cashLeft: last.cash,
+  };
+}
+
+function dcaInvestments(led, monthly) {
+  const totalBought = led.reduce((a, d) => a + d.buy, 0);
+  const boughtShares = led.reduce((a, d) => a + d.bought, 0);
+  const last = led[led.length - 1];
+  return {
+    purchases: led.filter((d) => d.contribution > 0).length,
+    perPurchase: monthly,
+    totalContributions: led.reduce((a, d) => a + d.contribution, 0),
+    totalBought,
+    fees: led.reduce((a, d) => a + d.cost, 0),
+    totalShares: last.shares,
+    averageBuyPrice: boughtShares > 0 ? totalBought / boughtShares : null,
+    finalIndexValue: last.inIndex,
+    cashLeft: last.cash,
+  };
+}
+
+function planCore(D, eq, inIndex, flow, ret, cost) {
+  const n = eq.length;
+  const nav = navOf(ret);
+  const dd = drawdownOf(nav, 1);
+  const r = ret.filter((x) => x !== null);
+  const growth = nav[n - 1];
+  const years = r.length / 252;
+  const cagr = years > 0 && growth > 0 ? growth ** (1 / years) - 1 : NaN;
+  const annVol = r.length > 1 ? sd(r) * Math.sqrt(252) : NaN;
+  const sharpe = annVol > 0 ? (mean(r) * 252) / annVol : NaN;
+  const maxDrawdown = dd.reduce((a, x) => Math.min(a, x), 0);
+  let trough = 0;
+  for (let i = 1; i < n; i++) if (dd[i] < dd[trough]) trough = i;
+  const episodes = drawdownEpisodesOf(dd, D);
+  const contributions = flow.reduce((a, x) => a + x, 0);
+  const shareOf = eq.map((e, i) => (e > 0 ? inIndex[i] / e : 0));
+  const flows = [];
+  flow.forEach((f, i) => {
+    if (f > 0) flows.push({ t: Date.parse(D[i]) / 86400000, amount: -f });
+  });
+  flows.push({ t: Date.parse(D[n - 1]) / 86400000, amount: eq[n - 1] });
+  return {
+    metrics: {
+      endingEquity: eq[n - 1],
+      totalContributions: contributions,
+      profit: eq[n - 1] - contributions,
+      twrCumulative: growth - 1,
+      twrCagr: cagr,
+      annVol,
+      sharpe,
+      maxDrawdown,
+      calmar: maxDrawdown === 0 ? null : cagr / Math.abs(maxDrawdown),
+      troughDate: dd[trough] < 0 ? D[trough] : null,
+      longestUnderwaterDays: episodes.reduce((a, e) => Math.max(a, e.tradingDaysUnder), 0),
+      drawdownEpisodes: [...episodes].sort((a, b) => a.depth - b.depth).slice(0, 3),
+      worstDay: Math.min(...r),
+      bestDay: Math.max(...r),
+      avgExposure: mean(shareOf),
+      costTotal: cost.reduce((a, x) => a + x, 0),
+      moneyWeightedReturn: xirr(flows),
+    },
+    dd,
+    shareOf,
+  };
+}
+
+export function dcaVsVm(rows, { monthly = 10000, maxExposure = 1, costBps = 0 } = {}) {
+  if (!(monthly > 0)) throw new Error('monthly_amount must be positive.');
+  if (!(maxExposure > 0 && maxExposure <= 1)) throw new Error('max_exposure must be in (0, 1].');
+  if (!(costBps >= 0)) throw new Error('cost_bps cannot be negative.');
+  if (rows.length < 30) throw new Error(`Only ${rows.length} valid rows found; check CSV columns/date format.`);
+
+  const D = rows.map((r) => r.date);
+  const P = rows.map((r) => r.close);
+  const n = P.length;
+  const contribAmt = D.map((d, i) => (i === 0 || monthKeyOf(d) !== monthKeyOf(D[i - 1]) ? monthly : 0));
+  const indexRet = P.map((p, i) => (i === 0 ? 0 : p / P[i - 1] - 1));
+
+  const months = [];
+  const monthRv = new Map();
+  D.forEach((d, i) => {
+    const k = monthKeyOf(d);
+    if (!monthRv.has(k)) {
+      monthRv.set(k, 0);
+      months.push(k);
+    }
+    monthRv.set(k, monthRv.get(k) + indexRet[i] * indexRet[i]);
+  });
+
+  const targetOf = new Map();
+  const priorRaw = [];
+  for (const k of months) {
+    const rv = monthRv.get(prevMonthKeyOf(k));
+    const raw = rv !== undefined && rv > 0 ? 1 / rv : null;
+    targetOf.set(k, raw !== null && priorRaw.length ? Math.min(raw / mean(priorRaw), maxExposure) : 0);
+    if (raw !== null) priorRaw.push(raw);
+  }
+  const priorRv = D.map((d) => {
+    const rv = monthRv.get(prevMonthKeyOf(monthKeyOf(d)));
+    return rv === undefined ? null : rv;
+  });
+  const targetAt = (i) => targetOf.get(monthKeyOf(D[i]));
+
+  const dca = dcaLedger(D, P, contribAmt, costBps);
+  const vm = vmLedger(D, P, contribAmt, costBps, targetAt);
+  const dcaEq = dca.map((d) => d.equity);
+  const vmEq = vm.days.map((d) => d.equity);
+  const dcaRet = cashFlowReturns(dcaEq, contribAmt);
+  const vmRet = cashFlowReturns(vmEq, contribAmt);
+  const dcaCore = planCore(D, dcaEq, dca.map((d) => d.inIndex), contribAmt, dcaRet, dca.map((d) => d.cost));
+  const vmCore = planCore(D, vmEq, vm.days.map((d) => d.inIndex), contribAmt, vmRet, vm.days.map((d) => d.cost));
+  const vmInv = ledgerInvestments(vm.days, vm.tradeList);
+
+  const share = vmInv.averageTargetExposure;
+  const ctl = vmLedger(D, P, contribAmt, costBps, () => share);
+  const ctlEq = ctl.days.map((d) => d.equity);
+  const ctlRet = cashFlowReturns(ctlEq, contribAmt);
+  const ctlCore = planCore(D, ctlEq, ctl.days.map((d) => d.inIndex), contribAmt, ctlRet, ctl.days.map((d) => d.cost));
+  const ctlInv = ledgerInvestments(ctl.days, ctl.tradeList);
+
+  const daily = D.map((date, i) => ({
+    date,
+    price: P[i],
+    indexReturn: indexRet[i],
+    priorMonthRv: priorRv[i],
+    vmTarget: vm.days[i].target,
+    contribution: contribAmt[i],
+    dcaEquity: dcaEq[i],
+    vmEquity: vmEq[i],
+    dcaCash: dca[i].cash,
+    vmCash: vm.days[i].cash,
+    dcaShares: dca[i].shares,
+    vmShares: vm.days[i].shares,
+    dcaCost: dca[i].cost,
+    vmCost: vm.days[i].cost,
+    dcaReturn: dcaRet[i],
+    vmReturn: vmRet[i],
+  }));
+
+  const series = D.map((date, i) => ({
+    date,
+    price: P[i],
+    priorMonthVol: priorRv[i] === null ? null : Math.sqrt(priorRv[i] * 12),
+    vmTarget: vm.days[i].target,
+    dcaEquity: dcaEq[i],
+    vmEquity: vmEq[i],
+    ctlEquity: ctlEq[i],
+    dcaShare: dcaCore.shareOf[i],
+    vmShare: vmCore.shareOf[i],
+    ctlShare: ctlCore.shareOf[i],
+    dcaDd: dcaCore.dd[i],
+    vmDd: vmCore.dd[i],
+    ctlDd: ctlCore.dd[i],
+    contribution: contribAmt[i],
+    dcaBuy: dca[i].buy,
+    vmTrade: vm.days[i].buy - vm.days[i].sell,
+  }));
+
+  return {
+    params: { monthly, maxExposure, costBps },
+    period: { from: D[0], to: D[n - 1], days: n, months: months.length, indexChange: P[n - 1] / P[0] - 1 },
+    daily,
+    metrics: {
+      dca: {
+        ...dcaCore.metrics,
+        investments: dcaInvestments(dca, monthly),
+        purchaseList: dca.filter((d) => d.buy > 0).map((d) => ({ date: d.date, amount: d.buy, price: d.price, fee: d.cost, shares: d.bought })),
+      },
+      vm: { ...vmCore.metrics, investments: vmInv, tradeList: vm.tradeList },
+    },
+    control: { share, ...ctlCore.metrics, investments: ctlInv, tradeList: ctl.tradeList },
+    timingEffect: {
+      endingEquityDiff: vmCore.metrics.endingEquity - ctlCore.metrics.endingEquity,
+      sharpeDiff: vmCore.metrics.sharpe - ctlCore.metrics.sharpe,
+      maxDrawdownDiff: vmCore.metrics.maxDrawdown - ctlCore.metrics.maxDrawdown,
+      twrCagrDiff: vmCore.metrics.twrCagr - ctlCore.metrics.twrCagr,
+    },
+    series,
+  };
 }

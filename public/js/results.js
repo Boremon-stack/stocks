@@ -1,27 +1,20 @@
-import { inr, lakh, pct, liveChart, SIP_VOL_PANELS, sipVolTooltip, barChart } from './chart.js';
-import { parseCsv } from './backtest.js';
+import { inr, lakh, pct, liveChart, barChart } from './chart.js';
 
-const BUNDLED = { nifty: 'data/nifty.csv', banknifty: 'data/banknifty.csv' };
-const NAMES = { nifty: 'Nifty 50', banknifty: 'Bank Nifty' };
-const TABS = ['live', 'compare', 'stats', 'sweep'];
-const PERIODS = { '1y': { months: 12 }, '2y': { months: 24 }, '3y': { months: 36 }, '5y': { months: 60 }, max: { months: 240, start: '2019-01-02' } };
-const STUDY_FROM = '2018-12-01';
+const FILES = { nifty50: 'data/nifty50.csv', banknifty: 'data/banknifty.csv' };
+const NAMES = { nifty50: 'Nifty 50', banknifty: 'Bank Nifty' };
+const TABS = ['live', 'compare', 'stats', 'data'];
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
-const SETTING_IDS = ['pool', 'sip', 'window', 'rebalance', 'scaling', 'calibration', 'maxExp', 'minExp', 'cost', 'cash'];
-const CTL_PANELS = SIP_VOL_PANELS.map((p, i) => (i === 0 ? { ...p, lines: [...p.lines, { key: 'ctlValue', color: 'var(--ink-2)', label: 'Constant share' }] } : p));
-const CSV_COLS = [
-  ['date', 'date'], ['close', 'close'], ['vol', 'volatility'], ['volWeight', 'vol_share'], ['sipExposure', 'sip_share'],
-  ['volInIndex', 'vol_in_index'], ['sipInIndex', 'sip_in_index'], ['sipValue', 'sip_value'], ['volValue', 'vol_value'],
-  ['sipCost', 'sip_cost'], ['volCost', 'vol_cost'], ['volTrade', 'vol_trade'], ['sipBuy', 'sip_buy'], ['sipDd', 'sip_drawdown'], ['volDd', 'vol_drawdown'],
-];
 const LIST_CAP = 400;
+const LIVE_KEYS = ['dcaEquity', 'vmEquity', 'dcaDd', 'vmDd', 'priorMonthVol', 'dcaShare', 'vmShare', 'vmTarget'];
+const CMP_KEYS = ['nPrice', 'bPrice', 'nDca', 'bDca', 'nVm', 'bVm', 'nVmDd', 'bVmDd', 'nVmTarget', 'bVmTarget'];
+const SETTING_IDS = ['monthly', 'maxExp', 'costBps', 'from', 'to'];
 const PAIR = (nk, bk) => [{ key: nk, color: 'var(--nifty)', label: 'Nifty 50' }, { key: bk, color: 'var(--bank)', label: 'Bank Nifty' }];
+const pctAxis = (v) => `${(v * 100).toFixed(0)}%`;
 const CMP_PANELS = [
-  { id: 'value', title: 'Volatility-based pool value', height: 250, lines: PAIR('nValue', 'bValue'), axisFmt: (v) => lakh(v).replace(' ', ''), baselineKey: 'pool' },
-  { id: 'idx', title: 'Index level (start = 100)', height: 150, lines: PAIR('nIdx', 'bIdx'), axisFmt: (v) => v.toFixed(0) },
-  { id: 'dd', title: 'Fall from the previous high (volatility-based plan)', height: 130, lines: PAIR('nDd', 'bDd'), axisFmt: (v) => `${(v * 100).toFixed(0)}%`, zeroMax: true },
-  { id: 'vol', title: 'Index volatility (last 20 days, per year)', height: 120, lines: PAIR('nVol', 'bVol'), axisFmt: (v) => `${(v * 100).toFixed(0)}%`, zeroMin: true },
-  { id: 'exp', title: 'Share of the pool in the index (volatility-based plan)', height: 120, lines: PAIR('nW', 'bW'), axisFmt: (v) => `${(v * 100).toFixed(0)}%`, fixed: [0, 1] },
+  { id: 'value', title: 'Volatility-managed portfolio value', height: 250, lines: PAIR('nVm', 'bVm'), axisFmt: (v) => lakh(v).replace(' ', '') },
+  { id: 'dca', title: 'Monthly DCA portfolio value', height: 200, lines: PAIR('nDca', 'bDca'), axisFmt: (v) => lakh(v).replace(' ', '') },
+  { id: 'dd', title: 'Fall from the previous high (volatility-managed)', height: 130, lines: PAIR('nVmDd', 'bVmDd'), axisFmt: pctAxis, zeroMax: true },
+  { id: 'vmTarget', title: 'VM target exposure', height: 130, lines: PAIR('nVmTarget', 'bVmTarget'), axisFmt: pctAxis, fixed: [0, 1] },
 ];
 const PAPER_ROWS = [
   ['Annualised alpha', (p) => pct(p.alphaAnnual, 2)],
@@ -55,45 +48,26 @@ const DAILY_ROWS = [
   ['Ljung-Box Q(10) on squared returns (p-value)', (d) => `${d.ljungBoxSq.q.toFixed(1)} (p ${pFmt(d.ljungBoxSq.pValue)})`],
 ];
 
-const state = { index: 'nifty', range: 'max', tab: 'live', token: 0, overrides: {}, data: {} };
+const state = { index: 'nifty50', tab: 'live', token: 0, overrides: {}, data: {}, dataView: { page: 0, from: '', to: '', file: null } };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const bold = (t) => `<b>${t}</b>`;
-const signedInr = (x) => `${x < 0 ? '-' : '+'}${inr(Math.abs(x))}`;
-const signedPts = (x) => `${x < 0 ? '-' : '+'}${Math.abs(x * 100).toFixed(1)} pts`;
-const signedNum = (x, d = 2, unit = '') => `${x < 0 ? '-' : '+'}${Math.abs(x).toFixed(d)}${unit}`;
-const cashPct = (rate) => `${Number((rate * 100).toFixed(1))}%`;
-const pFmt = (p) => (p < 0.001 ? '< 0.001' : p.toFixed(3));
-const fmtSlope = (x) => (Math.abs(x) < 0.01 ? x.toExponential(2) : x.toFixed(3));
-const sub = (t) => `<span class="sub" style="display:block">${esc(t)}</span>`;
-const slug = (s) => s.replace(/\.csv$/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'custom';
-const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
-const setStatus = (msg, isErr = false) => { const s = $('status'); s.textContent = msg; s.classList.toggle('err', isErr); };
-const indexName = (k) => state.overrides[k]?.name ?? NAMES[k];
-const notesHtml = (notes) => (notes?.length ? `<span class="note" style="display:block;margin-top:10px">${notes.map(esc).join(' ')}</span>` : '');
-const pressed = (id) => $(id).querySelector('[aria-pressed="true"]')?.dataset.v;
-const returnsOf = (v) => v.slice(1).map((x, i) => x / v[i] - 1);
-const annualVol = (r) => r.stats.returns.sd * Math.sqrt(252);
-
 const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
+const shownOr = (v, f) => (v === undefined || v === null || v === '' || (typeof v === 'number' && !Number.isFinite(v)) ? '-' : f(v));
+const inrOr = (x) => shownOr(x, inr);
+const pctOr = (x, d = 2) => shownOr(x, (v) => pct(v, d));
 const fx2 = (x) => x.toFixed(2);
 const numOr = (x, d, suffix = '') => (isNum(x) ? `${x.toFixed(d)}${suffix}` : '-');
 const seqOr = (xs, f) => (xs.every(isNum) ? xs.map(f).join(' / ') : '-');
-const vf = (o, k, f) => (isNum(o?.[k]) ? f(o[k]) : '-');
-const shownOr = (v, f) => (v === undefined || v === null || (typeof v === 'number' && !Number.isFinite(v)) ? '-' : f(v));
-const pctOr = (x, d = 1) => shownOr(x, (v) => pct(v, d));
 const txt = (s) => (typeof s === 'string' && s ? esc(s) : '-');
-const seriesVals = (series, key) => (Array.isArray(series) ? series.map((d) => d?.[key]).filter(isNum) : []);
-const meanOf = (xs) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : undefined);
-const ensureAfter = (id, anchor, tag = 'div') => {
-  let el = $(id);
-  if (!el && anchor) {
-    el = document.createElement(tag);
-    el.id = id;
-    anchor.after(el);
-  }
-  return el;
-};
+const bold = (t) => `<b>${esc(t)}</b>`;
+const signedInr = (x) => `${x < 0 ? '-' : '+'}${inr(Math.abs(x))}`;
+const signedPts = (x, d = 1) => `${x < 0 ? '-' : '+'}${Math.abs(x * 100).toFixed(d)} pts`;
+const signedNum = (x, d = 2, unit = '') => `${x < 0 ? '-' : '+'}${Math.abs(x).toFixed(d)}${unit}`;
+const pFmt = (p) => (p < 0.001 ? '< 0.001' : p.toFixed(3));
+const fmtSlope = (x) => (Math.abs(x) < 0.01 ? x.toExponential(2) : x.toFixed(3));
+const setStatus = (msg, isErr = false) => { const s = $('status'); s.textContent = msg; s.classList.toggle('err', isErr); };
+const notesHtml = (notes) => (Array.isArray(notes) && notes.length ? `<span class="note" style="display:block;margin-top:10px">${notes.map((n) => esc(n)).join(' ')}</span>` : '');
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
 const textCache = new Map();
 function fetchText(url) {
@@ -119,42 +93,23 @@ function cachedPost(path, body) {
 }
 
 function settings() {
-  const num = (id) => Number($(id).value);
-  return {
-    pool: num('pool'),
-    sip: num('sip'),
-    window: num('window'),
-    minExposure: num('minExp') / 100,
-    maxExposure: num('maxExp') / 100,
-    cost: num('cost') / 100,
-    cashRate: num('cash') / 100,
-    rebalance: $('rebalance').value,
-    scaling: $('scaling').value,
-    calibration: $('calibration').value,
-  };
-}
-
-function periodBody() {
-  const p = PERIODS[state.range] ?? PERIODS.max;
-  return p.start ? { months: p.months, start: p.start } : { months: p.months };
-}
-
-const csvFor = (index) => (state.overrides[index] ? state.overrides[index].text : fetchText(BUNDLED[index]));
-
-function ownMaxFall(series) {
-  let peak = -Infinity;
-  let worst = 0;
-  for (const d of series) {
-    peak = Math.max(peak, d.close);
-    worst = Math.min(worst, d.close / peak - 1);
-  }
-  return worst;
+  const monthly = Number($('monthly').value);
+  const cap = Number($('maxExp').value);
+  const costBps = Number($('costBps').value);
+  if (!(monthly > 0)) throw new Error('Monthly amount must be a positive number.');
+  if (!(cap >= 1 && cap <= 100)) throw new Error('Most in index must be between 1 and 100.');
+  if (!(costBps >= 0 && costBps <= 100)) throw new Error('Cost per trade must be between 0 and 100 bp.');
+  const body = { monthly, maxExposure: cap / 100, costBps };
+  if ($('from').value) body.start = $('from').value;
+  if ($('to').value) body.end = $('to').value;
+  return body;
 }
 
 function correlation(xs, ys) {
-  const n = xs.length;
-  const mx = xs.reduce((s, x) => s + x, 0) / n;
-  const my = ys.reduce((s, y) => s + y, 0) / n;
+  const n = Math.min(xs.length, ys.length);
+  if (n < 3) return null;
+  const mx = xs.slice(0, n).reduce((s, x) => s + x, 0) / n;
+  const my = ys.slice(0, n).reduce((s, y) => s + y, 0) / n;
   let sxy = 0;
   let sxx = 0;
   let syy = 0;
@@ -168,27 +123,76 @@ function correlation(xs, ys) {
   return sxy / Math.sqrt(sxx * syy);
 }
 
-function mergeSeries(sa, sb) {
-  const byDate = new Map(sb.map((d) => [d.date, d]));
-  const pairs = sa.filter((d) => byDate.has(d.date)).map((d) => [d, byDate.get(d.date)]);
-  if (!pairs.length) return [];
-  const n0 = pairs[0][0].close;
-  const b0 = pairs[0][1].close;
-  return pairs.map(([x, y]) => ({
-    date: x.date,
-    nValue: x.volValue, bValue: y.volValue,
-    nIdx: (100 * x.close) / n0, bIdx: (100 * y.close) / b0,
-    nDd: x.volDd, bDd: y.volDd,
-    nVol: x.vol, bVol: y.vol,
-    nW: x.volWeight, bW: y.volWeight,
-    nClose: x.close, bClose: y.close,
-  }));
+const priceReturns = (rows, key) => rows.slice(1).map((d, i) => d[key] / rows[i][key] - 1);
+
+function ownMaxFall(rows) {
+  let peak = -Infinity;
+  let worst = 0;
+  let n = 0;
+  for (const d of Array.isArray(rows) ? rows : []) {
+    if (!isNum(d?.price)) continue;
+    n++;
+    peak = Math.max(peak, d.price);
+    worst = Math.min(worst, d.price / peak - 1);
+  }
+  return n ? worst : null;
 }
 
-function toCsv(series) {
-  const cols = CSV_COLS.filter(([field]) => field === 'date' || series.some((d) => d[field] !== undefined));
-  const rows = series.map((d) => cols.map(([field]) => d[field] ?? '').join(','));
-  return [cols.map(([, head]) => head).join(','), ...rows].join('\n') + '\n';
+function chartRows(series, keys) {
+  return (Array.isArray(series) ? series : []).filter((d) => keys.every((k) => isNum(d?.[k])));
+}
+
+function planDailyReturns(series, eqKey) {
+  const rows = Array.isArray(series) ? series : [];
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const a = rows[i - 1]?.[eqKey];
+    const b = rows[i]?.[eqKey];
+    const c = rows[i]?.contribution;
+    if (!isNum(a) || !isNum(b) || !isNum(c) || a <= 0) return null;
+    out.push((b - c) / a - 1);
+  }
+  return out.length ? out : null;
+}
+
+function meanSd(xs) {
+  if (!xs || xs.length < 2) return null;
+  const n = xs.length;
+  const mean = xs.reduce((s, x) => s + x, 0) / n;
+  const sd = Math.sqrt(xs.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1));
+  return { mean, sd };
+}
+
+const deepest = (p) => {
+  const eps = Array.isArray(p?.drawdownEpisodes) ? p.drawdownEpisodes.filter((e) => e && isNum(e.depth)) : [];
+  return eps.length ? eps.reduce((a, b) => (b.depth < a.depth ? b : a)) : null;
+};
+
+function mergeSeries(sa, sb) {
+  if (!Array.isArray(sa) || !Array.isArray(sb)) return [];
+  const byDate = new Map(sb.map((d) => [d.date, d]));
+  return sa.filter((d) => byDate.has(d.date)).map((x) => {
+    const y = byDate.get(x.date);
+    return {
+      date: x.date,
+      nPrice: x.price, bPrice: y.price,
+      nDca: x.dcaEquity, bDca: y.dcaEquity,
+      nVm: x.vmEquity, bVm: y.vmEquity,
+      nVmDd: x.vmDd, bVmDd: y.vmDd,
+      nVmTarget: x.vmTarget, bVmTarget: y.vmTarget,
+    };
+  });
+}
+
+const csvCell = (v) => {
+  const s = v === undefined || v === null ? '' : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+function toCsv(rows, cols) {
+  const head = cols.join(',');
+  const body = rows.map((row) => cols.map((c) => csvCell(row[c])).join(','));
+  return [head, ...body].join('\n') + '\n';
 }
 
 function download(name, text, type) {
@@ -205,414 +209,489 @@ function download(name, text, type) {
 async function loadLive() {
   const index = state.index;
   const o = state.overrides[index];
-  const csv = await csvFor(index);
-  const result = await cachedPost('api/compare', { csv, ...settings(), ...periodBody() });
-  return { index, name: indexName(index), key: o ? slug(o.name) : index, result };
+  const csv = o ? o.text : await fetchText(FILES[index]);
+  const result = await cachedPost('api/dcavm', { csv, ...settings() });
+  return { index, name: o ? o.name : NAMES[index], result };
 }
 
-function liveVerdict(r) {
-  const { params: p, sip, vol } = r;
-  const si = sip.investments ?? {};
-  const vi = vol.investments ?? {};
-  const noCash = !(p.cashRate > 0);
-  const c = sip.components;
-  const put = si.totalPutIn;
-  const cashOk = c && isNum(sip.profit) && (noCash ? isNum(c.costs) : isNum(c.interest) && isNum(c.indexGain));
-  const cashLine = !cashOk ? []
-    : noCash ? [`With idle cash earning nothing, the monthly plan's ${bold(signedInr(sip.profit))} is what the index did${isNum(put) ? ` to the ${bold(inr(put))} it put in` : ''}, less ${bold(inr(c.costs))} of trading costs.`]
-    : [`Of the monthly plan's ${bold(signedInr(sip.profit))}, ${bold(inr(c.interest))} is interest on idle cash (${cashPct(p.cashRate)} a year) and ${bold(signedInr(c.indexGain))} came from the index itself.`];
-  const sentences = [];
-  if (isNum(sip.final) && isNum(vol.final)) {
-    const gap = vol.final - sip.final;
-    sentences.push(`From ${esc(r.period.from)} to ${esc(r.period.to)}, a pool of ${bold(inr(p.pool))} ended at ${bold(inr(sip.final))} with the monthly plan and ${bold(inr(vol.final))} with the volatility-based plan, ${bold(inr(Math.abs(gap)))} ${gap >= 0 ? 'higher' : 'lower'} for the volatility-based plan.`);
+function liveVerdict(r, name) {
+  const dca = r.dca ?? {};
+  const vm = r.vm ?? {};
+  const di = dca.investments ?? {};
+  const vi = vm.investments ?? {};
+  const monthly = r.params?.monthly;
+  const s = [];
+  if (isNum(dca.endingEquity) && isNum(vm.endingEquity)) {
+    const gap = vm.endingEquity - dca.endingEquity;
+    const amount = isNum(monthly) ? `${bold(inr(monthly))} a month` : 'the same monthly amount';
+    const put = isNum(dca.totalContributions) ? `, ${bold(inr(dca.totalContributions))} in all` : '';
+    s.push(`On ${bold(name)}, from ${txt(r.period?.from)} to ${txt(r.period?.to)}, ${amount} went into each plan${put}. The monthly DCA ended at ${bold(inr(dca.endingEquity))}; the volatility-managed plan ended at ${bold(inr(vm.endingEquity))}, ${bold(inr(Math.abs(gap)))} ${gap >= 0 ? 'higher' : 'lower'}.`);
   }
-  if (isNum(put) && isNum(si.purchases) && isNum(si.perPurchase)) {
-    sentences.push(`The monthly plan put ${bold(inr(put))} into the index over ${bold(si.purchases)} purchases of ${bold(inr(si.perPurchase))}.`);
+  if (isNum(di.purchases) && isNum(vi.trades) && isNum(vi.buys) && isNum(vi.sells)) {
+    s.push(`The monthly DCA made ${bold(di.purchases)} purchases; the volatility-managed plan made ${bold(vi.trades)} trades (${bold(vi.buys)} buys, ${bold(vi.sells)} sells).`);
   }
-  if ([vi.trades, vi.buys, vi.sells, vi.totalBought, vi.totalSold, vi.averageInIndex].every(isNum)) {
-    sentences.push(`The volatility-based plan made ${bold(vi.trades)} trades (${bold(vi.buys)} buys, ${bold(vi.sells)} sells): it bought ${bold(inr(vi.totalBought))} and sold ${bold(inr(vi.totalSold))}, and on average ${bold(inr(vi.averageInIndex))} of the pool was in the index.`);
+  const series = Array.isArray(r.series) ? r.series : [];
+  const decisions = series.filter((d) => isNum(d?.contribution) && d.contribution > 0);
+  if (decisions.length && decisions.every((d) => isNum(d.vmTarget))) {
+    const below = decisions.filter((d) => d.vmTarget < 1 - 1e-9).length;
+    const avg = isNum(vi.averageTargetExposure) ? `; the average target was ${bold(pct(vi.averageTargetExposure, 1))}` : '';
+    s.push(`The volatility target was below 100% in ${bold(below)} of ${bold(decisions.length)} monthly decisions, so part of that plan's money sat in cash that earns nothing${avg}. The target is 0 in the first two months, which have no earlier estimate.`);
   }
-  if (isNum(sip.sharpe) && isNum(vol.sharpe)) {
-    sentences.push(`Sharpe ratio ${bold(fx2(sip.sharpe))} for the monthly plan and ${bold(fx2(vol.sharpe))} for the volatility-based plan.`);
+  if (isNum(dca.sharpe) && isNum(vm.sharpe)) {
+    s.push(`Sharpe (risk-free=0) ${bold(fx2(dca.sharpe))} for the monthly DCA and ${bold(fx2(vm.sharpe))} for the volatility-managed plan. Biggest fall from a high ${bold(pctOr(dca.maxDrawdown))} and ${bold(pctOr(vm.maxDrawdown))}.`);
   }
-  if (isNum(sip.maxDrawdown) && isNum(vol.maxDrawdown)) {
-    sentences.push(`Biggest fall from a high ${bold(pct(sip.maxDrawdown))} and ${bold(pct(vol.maxDrawdown))}.`);
-  }
-  return [...sentences, ...cashLine].join(' ') + notesHtml(r.notes);
-}
-
-function sharpeSub(p) {
-  const q = p.sharpeParts ?? {};
-  if (!isNum(q.meanDaily) || !isNum(q.sdDaily) || !isNum(q.rfd)) return '';
-  return sub(`${pct(q.meanDaily, 4)} mean, ${pct(q.sdDaily, 4)} sd, risk-free ${pct(q.rfd * 252, 2)} a year`);
+  return s.join(' ') + notesHtml(r.notes);
 }
 
 function kpiTable(r) {
-  const { sip, vol, period, series } = r;
-  const si = sip.investments ?? {};
-  const vi = vol.investments ?? {};
-  const sc = sip.components;
-  const vc = vol.components;
-  const noCash = !(r.params?.cashRate > 0);
-  const sipIn = seriesVals(series, 'sipInIndex');
-  const sipMean = meanOf(sipIn);
-  const sipMax = sipIn.length ? Math.max(...sipIn) : undefined;
-  const sipMin = sipIn.length ? Math.min(...sipIn) : undefined;
+  const dca = r.dca ?? {};
+  const vm = r.vm ?? {};
+  const di = dca.investments ?? {};
+  const vi = vm.investments ?? {};
+  const series = r.series;
   const both = (a, b) => isNum(a) && isNum(b);
   const dMoney = (a, b) => (both(a, b) ? signedInr(b - a) : '-');
-  const dPts = (a, b) => (both(a, b) ? signedPts(b - a) : '-');
+  const dPts = (a, b) => (both(a, b) ? signedPts(b - a, 2) : '-');
   const dNum = (a, b, d = 2, unit = '') => (both(a, b) ? signedNum(b - a, d, unit) : '-');
-  const row = (label, a, c, d) => `<tr><td>${label}</td><td>${a}</td><td>${c}</td><td>${d}</td></tr>`;
-  const sec = (t) => `<tr class="sec"><td colspan="4">${t}</td></tr>`;
-  const spanRow = (label, v) => `<tr><td>${label}</td><td colspan="3" style="text-align:left">${v}</td></tr>`;
-  const trow = (label, a, c, f, d = '-') => row(label, shownOr(a, f), shownOr(c, f), d);
-  const erow = (label, a, c, f, d) => (a === undefined && c === undefined ? '' : trow(label, a, c, f, d));
-  const sharpeCell = (p) => (isNum(p.sharpe) ? fx2(p.sharpe) + sharpeSub(p) : '-');
-  const es = sip.drawdownEpisodes?.[0];
-  const ev = vol.drawdownEpisodes?.[0];
-  const recovered = (e) => (e ? (e.endDate === undefined ? undefined : e.endDate ?? 'not recovered') : undefined);
-  const recDays = (e) => (e ? e.tradingDaysToRecover : undefined);
-  const origin = sc && vc
-    ? sec('Where the profit came from')
-      + trow('Gain or loss on the index', sc.indexGain, vc.indexGain, signedInr, dMoney(sc.indexGain, vc.indexGain))
-      + (noCash ? '' : trow('Interest on idle cash', sc.interest, vc.interest, signedInr, dMoney(sc.interest, vc.interest)))
-      + trow('Trading costs', sc.costs, vc.costs, (x) => `-${inr(x)}`, both(sc.costs, vc.costs) ? signedInr(sc.costs - vc.costs) : '-')
-    : '';
-  return '<tr><th></th><th>Monthly SIP</th><th>Volatility-based</th><th>Difference</th></tr>'
-    + sec('The index itself (same for both plans)')
-    + spanRow('Index change over the period', pctOr(period.niftyChange))
-    + spanRow('Index own biggest fall', Array.isArray(series) && series.length ? pct(ownMaxFall(series)) : '-')
-    + sec('Results on the pool')
-    + trow('Final value', sip.final, vol.final, inr, dMoney(sip.final, vol.final))
-    + trow('Profit or loss', sip.profit, vol.profit, signedInr, dMoney(sip.profit, vol.profit))
-    + trow('Return on the pool', sip.returnPct, vol.returnPct, pct, dPts(sip.returnPct, vol.returnPct))
-    + trow('Annualised return (CAGR)', sip.cagr, vol.cagr, pct, dPts(sip.cagr, vol.cagr))
+  const row = (label, a, b, diff) => `<tr><td>${esc(label)}</td><td>${a}</td><td>${b}</td><td>${diff}</td></tr>`;
+  const sec = (t) => `<tr class="sec"><td colspan="4">${esc(t)}</td></tr>`;
+  const trow = (label, a, b, f, diff = '-') => row(label, shownOr(a, f), shownOr(b, f), diff);
+  const sub = (t) => `<span class="sub">${esc(t)}</span>`;
+  const ms = (p, eq) => meanSd(planDailyReturns(series, eq));
+  const sharpeCell = (p, eq) => {
+    if (!isNum(p.sharpe)) return '-';
+    const q = ms(p, eq);
+    return fx2(p.sharpe) + (q ? sub(`${pct(q.mean, 3)} mean daily return, ${pct(q.sd, 2)} daily sd`) : '');
+  };
+  const es = deepest(dca);
+  const ev = deepest(vm);
+  const endOf = (e) => (e ? (e.endDate ?? 'not recovered') : undefined);
+  return '<tr><th></th><th>Monthly DCA</th><th>Volatility-managed</th><th>Difference (VM minus DCA)</th></tr>'
+    + sec('Results')
+    + trow('Ending equity (INR)', dca.endingEquity, vm.endingEquity, inr, dMoney(dca.endingEquity, vm.endingEquity))
+    + trow('Total contributions (INR)', dca.totalContributions, vm.totalContributions, inr, dMoney(dca.totalContributions, vm.totalContributions))
+    + trow('Profit vs contributions (INR)', dca.profit, vm.profit, signedInr, dMoney(dca.profit, vm.profit))
+    + trow('TWR cumulative return', dca.twrCumulative, vm.twrCumulative, (x) => pct(x, 2), dPts(dca.twrCumulative, vm.twrCumulative))
+    + trow('TWR CAGR', dca.twrCagr, vm.twrCagr, (x) => pct(x, 2), dPts(dca.twrCagr, vm.twrCagr))
     + sec('Risk and return')
-    + trow('Volatility of the pool (per year)', sip.annVol, vol.annVol, pct, dPts(sip.annVol, vol.annVol))
-    + row('Sharpe ratio', sharpeCell(sip), sharpeCell(vol), dNum(sip.sharpe, vol.sharpe))
-    + trow('Calmar ratio (CAGR / biggest fall)', sip.calmar, vol.calmar, fx2, dNum(sip.calmar, vol.calmar))
-    + trow('Worst single day', sip.worstDay, vol.worstDay, (x) => pct(x, 2), dPts(sip.worstDay, vol.worstDay))
-    + trow('Best single day', sip.bestDay, vol.bestDay, (x) => pct(x, 2), dPts(sip.bestDay, vol.bestDay))
-    + sec('Drawdown (fall from the previous high)')
-    + trow('Biggest fall', sip.maxDrawdown, vol.maxDrawdown, pct, dPts(sip.maxDrawdown, vol.maxDrawdown))
-    + erow('Fall started', es?.peakDate, ev?.peakDate, esc)
-    + erow('Lowest point', es?.troughDate, ev?.troughDate, esc)
-    + erow('Recovered on', recovered(es), recovered(ev), esc)
-    + erow('Trading days from high to low', es?.tradingDaysToTrough, ev?.tradingDaysToTrough, String, dNum(es?.tradingDaysToTrough, ev?.tradingDaysToTrough, 0, ' days'))
-    + erow('Trading days to recover', recDays(es), recDays(ev), String, dNum(recDays(es), recDays(ev), 0, ' days'))
-    + trow('Longest time below a previous high', sip.longestUnderwaterDays, vol.longestUnderwaterDays, (x) => `${x} trading days`, dNum(sip.longestUnderwaterDays, vol.longestUnderwaterDays, 0, ' days'))
+    + trow('Annualized volatility', dca.annVol, vm.annVol, (x) => pct(x, 2), dPts(dca.annVol, vm.annVol))
+    + row('Sharpe (risk-free=0)', sharpeCell(dca, 'dcaEquity'), sharpeCell(vm, 'vmEquity'), dNum(dca.sharpe, vm.sharpe))
+    + trow('Calmar ratio (CAGR / maximum drawdown)', dca.calmar, vm.calmar, fx2, dNum(dca.calmar, vm.calmar))
+    + trow('Worst day', dca.worstDay, vm.worstDay, (x) => pct(x, 2), dPts(dca.worstDay, vm.worstDay))
+    + trow('Best day', dca.bestDay, vm.bestDay, (x) => pct(x, 2), dPts(dca.bestDay, vm.bestDay))
+    + sec('Drawdown (fall of the unitized NAV from its previous high)')
+    + trow('Maximum drawdown', dca.maxDrawdown, vm.maxDrawdown, (x) => pct(x, 2), dPts(dca.maxDrawdown, vm.maxDrawdown))
+    + trow('Fall started', es?.peakDate, ev?.peakDate, txt)
+    + trow('Lowest point', es?.troughDate, ev?.troughDate, txt)
+    + trow('Recovered on', endOf(es), endOf(ev), txt)
+    + trow('Trading days from high to low', es?.tradingDaysToTrough, ev?.tradingDaysToTrough, String, dNum(es?.tradingDaysToTrough, ev?.tradingDaysToTrough, 0, ' days'))
+    + trow('Trading days to recover', es?.tradingDaysToRecover, ev?.tradingDaysToRecover, String, dNum(es?.tradingDaysToRecover, ev?.tradingDaysToRecover, 0, ' days'))
+    + trow('Longest time below a previous high', dca.longestUnderwaterDays, vm.longestUnderwaterDays, (x) => `${x} trading days`, dNum(dca.longestUnderwaterDays, vm.longestUnderwaterDays, 0, ' days'))
     + sec('Investments')
-    + row('Number of investments', `${shownOr(si.purchases, String)}${sub('monthly purchases')}`, `${shownOr(vi.trades, String)}${sub('month-end resets that changed the holding')}`, dNum(si.purchases, vi.trades, 0))
-    + trow('Buys', si.purchases, vi.buys, String, dNum(si.purchases, vi.buys, 0))
+    + trow('Contributions received', di.purchases, vi.contributions, String, dNum(di.purchases, vi.contributions, 0))
+    + trow('Amount per monthly purchase (INR)', di.perPurchase, undefined, inr)
+    + trow('Total put in (INR)', di.totalContributions, vi.totalContributions, inr, dMoney(di.totalContributions, vi.totalContributions))
+    + trow('Total bought (INR)', di.totalBought, vi.totalBought, inr, dMoney(di.totalBought, vi.totalBought))
+    + trow('Average index price paid', di.averageBuyPrice, undefined, (x) => x.toFixed(2))
+    + trow('Rebalances (VM decisions)', undefined, vi.rebalances, String)
+    + trow('Trades (VM, where the holding changed)', undefined, vi.trades, String)
+    + trow('Buys', undefined, vi.buys, String)
     + trow('Sells', undefined, vi.sells, String)
-    + trow('Total bought', si.totalPutIn, vi.totalBought, inr, dMoney(si.totalPutIn, vi.totalBought))
-    + trow('Total sold', undefined, vi.totalSold, inr)
-    + trow('Net money put into the index', si.totalPutIn, vi.netPutIn, inr, dMoney(si.totalPutIn, vi.netPutIn))
-    + trow('Average price paid per index unit', si.averageBuyPrice, undefined, (x) => x.toFixed(2))
-    + trow('Average money in the index', sipMean, vi.averageInIndex, inr, dMoney(sipMean, vi.averageInIndex))
-    + trow('Most money in the index', sipMax, vi.peakInIndex, inr, dMoney(sipMax, vi.peakInIndex))
-    + trow('Least money in the index', sipMin, vi.lowestInIndex, inr, dMoney(sipMin, vi.lowestInIndex))
-    + trow('Average share of the pool in the index', sip.avgExposure, vol.avgExposure, (x) => pct(x, 0), dPts(sip.avgExposure, vol.avgExposure))
-    + trow('Index holding at the end', si.finalIndexValue, vi.finalIndexValue, inr, dMoney(si.finalIndexValue, vi.finalIndexValue))
-    + trow('Cash left at the end', si.cashLeft, vi.cashLeft, inr, dMoney(si.cashLeft, vi.cashLeft))
-    + trow('Return on the money actually put in (per year)', si.moneyWeightedReturn, undefined, pct)
-    + origin
+    + trow('Total sold (INR)', undefined, vi.totalSold, inr)
+    + trow('Turnover, bought plus sold (INR)', undefined, vi.turnover, inr)
+    + trow('Fees on investments (INR)', di.fees, vi.fees, inr, dMoney(di.fees, vi.fees))
+    + trow('Average target exposure', undefined, vi.averageTargetExposure, (x) => pct(x, 1))
+    + trow('Average share of the money in the index', dca.avgExposure, vm.avgExposure, (x) => pct(x, 1), dPts(dca.avgExposure, vm.avgExposure))
+    + trow('Average money in the index (INR)', undefined, vi.averageInIndex, inr)
+    + trow('Most money in the index (INR)', undefined, vi.peakInIndex, inr)
+    + trow('Least money in the index (INR)', undefined, vi.lowestInIndex, inr)
+    + trow('Index holding at the end (INR)', di.finalIndexValue, vi.finalIndexValue, inr, dMoney(di.finalIndexValue, vi.finalIndexValue))
+    + trow('Cash left at the end (INR)', di.cashLeft, vi.cashLeft, inr, dMoney(di.cashLeft, vi.cashLeft))
+    + sec('Money-weighted return')
+    + trow('Money-weighted return (per year)', dca.moneyWeightedReturn, vm.moneyWeightedReturn, (x) => pct(x, 2), dPts(dca.moneyWeightedReturn, vm.moneyWeightedReturn))
     + sec('Costs')
-    + trow('Trading costs paid', sip.costTotal, vol.costTotal, inr, dMoney(sip.costTotal, vol.costTotal));
-}
-
-function kpiNote(cashRate) {
-  const table = $('kpis');
-  const anchor = table.closest('.scroll-x') ?? table;
-  let note = $('kpisNote');
-  if (!note) {
-    note = document.createElement('p');
-    note.id = 'kpisNote';
-    note.className = 'note';
-    anchor.after(note);
-  }
-  const noCash = !(cashRate > 0);
-  note.textContent = noCash
-    ? 'Idle cash earns nothing here, so every figure comes from index prices, the rule and trading costs. You can set a rate in Settings.'
-    : `Idle cash earns ${cashPct(cashRate)} a year. Set it to 0 in Settings to see the effect of the index alone.`;
-}
-
-const statCard = (label, value, note, accent) => `<div style="background:var(--card);border:1px solid var(--rule);border-top:3px solid ${accent};border-radius:12px;padding:12px"><div class="sub" style="display:block">${esc(label)}</div><div style="font-size:1.4em;font-weight:600;margin:4px 0">${value}</div>${note ? `<div class="sub" style="display:block">${esc(note)}</div>` : ''}</div>`;
-
-function planCards(title, accent, items) {
-  const body = items.filter(([, v]) => v !== null).map(([label, value, note]) => statCard(label, value, note, accent)).join('');
-  if (!body) return '';
-  return `<div style="margin-top:12px"><div style="margin-bottom:6px"><b>${esc(title)}</b></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">${body}</div></div>`;
+    + trow('Trading costs paid (INR)', dca.costTotal, vm.costTotal, inr, dMoney(dca.costTotal, vm.costTotal));
 }
 
 function cardsHtml(r) {
-  const { sip, vol } = r;
-  const si = sip.investments ?? {};
-  const vi = vol.investments ?? {};
-  const sipIn = seriesVals(r.series, 'sipInIndex');
-  const epS = sip.drawdownEpisodes?.[0];
-  const epV = vol.drawdownEpisodes?.[0];
-  const epNote = (e) => (e && e.peakDate && e.troughDate ? `${e.peakDate} to ${e.troughDate}` : '');
-  const money = (x) => (isNum(x) ? inr(x) : null);
-  const count = (x) => (isNum(x) ? String(x) : null);
-  const sharpe = (p) => (isNum(p.sharpe) ? fx2(p.sharpe) : null);
-  const fall = (p) => (isNum(p.maxDrawdown) ? pct(p.maxDrawdown) : null);
-  const profit = (p) => (isNum(p.profit) ? `profit ${signedInr(p.profit)}` : '');
-  const sipCards = planCards('Monthly SIP', 'var(--sip)', [
-    ['Final value', money(sip.final), profit(sip)],
-    ['Sharpe ratio', sharpe(sip), 'return per unit of risk'],
-    ['Biggest fall', fall(sip), epNote(epS)],
-    ['Money put in', money(si.totalPutIn), isNum(si.purchases) ? `${si.purchases} purchases` : ''],
-    ['Investments made', count(si.purchases), isNum(si.perPurchase) ? `of ${inr(si.perPurchase)} each` : ''],
-    ['Average in the index', money(meanOf(sipIn)), 'mean over the days'],
-  ]);
-  const volCards = planCards('Volatility-based', 'var(--vol)', [
-    ['Final value', money(vol.final), profit(vol)],
-    ['Sharpe ratio', sharpe(vol), 'return per unit of risk'],
-    ['Biggest fall', fall(vol), epNote(epV)],
-    ['Money put in', money(vi.netPutIn), isNum(vi.totalBought) && isNum(vi.totalSold) ? `bought ${inr(vi.totalBought)}, sold ${inr(vi.totalSold)}` : ''],
-    ['Investments made', count(vi.trades), isNum(vi.buys) && isNum(vi.sells) ? `${vi.buys} buys, ${vi.sells} sells` : ''],
-    ['Average in the index', money(vi.averageInIndex), ''],
-  ]);
-  return sipCards + volCards;
+  const dca = r.dca ?? {};
+  const vm = r.vm ?? {};
+  const di = dca.investments ?? {};
+  const vi = vm.investments ?? {};
+  const stat = (label, value, note) => (value === null ? '' : `<div class="stat"><div class="lbl">${esc(label)}</div><div class="val">${value}</div>${note ? `<span class="sub">${esc(note)}</span>` : ''}</div>`);
+  const pick = (x, f) => (isNum(x) ? f(x) : null);
+  const epDates = (p) => {
+    const e = deepest(p);
+    return e && e.peakDate && e.troughDate ? `${e.peakDate} to ${e.troughDate}` : null;
+  };
+  const plan = (p, count, countNote, invVal, invNote) => [
+    stat('Ending equity', pick(p.endingEquity, inr), null),
+    stat('Profit vs contributions', pick(p.profit, signedInr), isNum(p.totalContributions) ? `on ${inr(p.totalContributions)} put in` : null),
+    stat('TWR CAGR', pick(p.twrCagr, (x) => pct(x, 2)), 'time-weighted, per year'),
+    stat('Sharpe (risk-free=0)', pick(p.sharpe, fx2), 'mean return over volatility, annualized'),
+    stat('Maximum drawdown', pick(p.maxDrawdown, (x) => pct(x, 2)), epDates(p)),
+    stat('Annualized volatility', pick(p.annVol, (x) => pct(x, 2)), null),
+    stat('Money put in', pick(p.totalContributions, inr), isNum(count) ? `${count} ${countNote}` : null),
+    stat('Investments made', pick(invVal, String), invNote),
+  ].join('');
+  const card = (cls, title, body) => (body ? `<div class="plan ${cls}"><h3>${esc(title)}</h3><div class="stat-grid">${body}</div></div>` : '');
+  const vmSub = isNum(vi.buys) && isNum(vi.sells) ? `${vi.buys} buys, ${vi.sells} sells` : null;
+  return card('plan-dca', 'Monthly DCA', plan(dca, di.purchases, 'purchases', di.purchases, 'purchases'))
+    + card('plan-vm', 'Volatility-managed', plan(vm, vi.contributions, 'contributions', vi.trades, vmSub ?? 'trades'));
 }
 
-function renderCards(r) {
-  const anchor = $('verdict').closest('.card') ?? $('verdict');
-  const box = ensureAfter('cards', anchor);
-  box.className = 'cards';
-  box.innerHTML = cardsHtml(r);
+function controlHtml(r) {
+  const vm = r.vm;
+  const c = r.control;
+  const t = r.timingEffect;
+  if (!vm || !c || !isNum(vm.endingEquity) || !isNum(c.endingEquity)) return '';
+  const vi = vm.investments ?? {};
+  const ci = c.investments ?? {};
+  const both = (a, b) => isNum(a) && isNum(b);
+  const dIn = (a, b) => (both(a, b) ? signedInr(a - b) : '-');
+  const dNum = (a, b, d = 2) => (both(a, b) ? signedNum(a - b, d) : '-');
+  const dPts = (a, b) => (both(a, b) ? signedPts(a - b, 2) : '-');
+  const head = ['', 'Volatility-managed', isNum(c.share) ? `Constant target ${pct(c.share, 1)}` : 'Constant target', 'Difference (VM minus constant)'];
+  const trow = (label, a, b, f, diff) => `<tr><td>${esc(label)}</td><td>${shownOr(a, f)}</td><td>${shownOr(b, f)}</td><td>${diff}</td></tr>`;
+  const table = `<div class="scroll-x"><table class="cmp"><tr>${head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>`
+    + trow('Ending equity (INR)', vm.endingEquity, c.endingEquity, inr, dIn(vm.endingEquity, c.endingEquity))
+    + trow('Sharpe (risk-free=0)', vm.sharpe, c.sharpe, fx2, dNum(vm.sharpe, c.sharpe))
+    + trow('Maximum drawdown', vm.maxDrawdown, c.maxDrawdown, (x) => pct(x, 2), dPts(vm.maxDrawdown, c.maxDrawdown))
+    + trow('TWR CAGR', vm.twrCagr, c.twrCagr, (x) => pct(x, 2), dPts(vm.twrCagr, c.twrCagr))
+    + trow('Number of trades', vi.trades, ci.trades, String, dNum(vi.trades, ci.trades, 0))
+    + trow('Trading costs paid (INR)', vm.costTotal, c.costTotal, inr, dIn(vm.costTotal, c.costTotal))
+    + '</table></div>';
+  const sentence = isNum(t?.endingEquityDiff) && isNum(t?.sharpeDiff) && isNum(t?.maxDrawdownDiff)
+    ? `Against the constant target, the volatility-managed plan ended ${bold(inr(Math.abs(t.endingEquityDiff)))} ${t.endingEquityDiff >= 0 ? 'higher' : 'lower'}, its Sharpe ratio was ${bold(Math.abs(t.sharpeDiff).toFixed(2))} ${t.sharpeDiff >= 0 ? 'higher' : 'lower'}, and its biggest fall was ${bold((Math.abs(t.maxDrawdownDiff) * 100).toFixed(2))} points ${t.maxDrawdownDiff > 0 ? 'shallower' : t.maxDrawdownDiff < 0 ? 'deeper' : 'unchanged'}.`
+    : '';
+  return '<h3>Is the volatility signal doing anything?</h3>'
+    + '<p class="note">The constant-target plan has the same ledger and rules as the volatility-managed plan, rebalances on the same contribution dates with the same cash and costs, and holds a fixed target equal to the volatility-managed plan\'s average target. Any difference comes from when the volatility plan held more or less, not from how much it held on average.</p>'
+    + table
+    + (sentence ? `<p style="margin-top:12px">${sentence}</p>` : '');
+}
+
+function renderControl(r) {
+  const html = controlHtml(r);
+  const box = $('controlCard');
+  box.innerHTML = html;
+  box.hidden = !html;
+}
+
+function livePanels(hasCtl) {
+  return [
+    {
+      id: 'value', title: 'Portfolio value', height: 250,
+      lines: [
+        { key: 'dcaEquity', color: 'var(--sip)', label: 'Monthly DCA' },
+        { key: 'vmEquity', color: 'var(--vol)', label: 'Volatility-managed', fill: true },
+        ...(hasCtl ? [{ key: 'ctlEquity', color: 'var(--ink-2)', label: 'Constant target', thin: true }] : []),
+      ],
+      axisFmt: (v) => lakh(v).replace(' ', ''),
+    },
+    {
+      id: 'dd', title: 'Fall from the previous high', height: 130,
+      lines: [
+        { key: 'dcaDd', color: 'var(--sip)', label: 'Monthly DCA', fill: true },
+        { key: 'vmDd', color: 'var(--vol)', label: 'Volatility-managed', fill: true },
+      ],
+      axisFmt: pctAxis, zeroMax: true,
+    },
+    {
+      id: 'vol', title: 'Volatility of the previous month (per year)', height: 110,
+      lines: [{ key: 'priorMonthVol', color: 'var(--ink)', label: 'Previous-month volatility', fill: true, thin: true }],
+      axisFmt: pctAxis, zeroMin: true,
+    },
+    {
+      id: 'share', title: 'Share of the money in the index', height: 130,
+      lines: [
+        { key: 'dcaShare', color: 'var(--sip)', label: 'Monthly DCA' },
+        { key: 'vmShare', color: 'var(--vol)', label: 'Volatility-managed' },
+        { key: 'vmTarget', color: 'var(--ink-2)', label: 'Volatility target', thin: true },
+      ],
+      axisFmt: pctAxis, fixed: [0, 1],
+    },
+  ];
+}
+
+const planTooltip = (name) => (d) => {
+  const rows = [
+    { label: name, value: isNum(d.price) ? Math.round(d.price).toLocaleString('en-IN') : '-' },
+    { label: 'Monthly DCA', value: `${lakh(d.dcaEquity)}  (${pct(d.dcaShare, 0)} in index)`, color: 'var(--sip)' },
+    { label: 'Volatility-managed', value: `${lakh(d.vmEquity)}  (${pct(d.vmShare, 0)} in index)`, color: 'var(--vol)' },
+    { label: 'Fall from high', value: `${pct(d.dcaDd)} vs ${pct(d.vmDd)}` },
+    { label: 'Previous-month volatility', value: pct(d.priorMonthVol, 1) },
+    { label: 'Volatility target', value: pct(d.vmTarget, 0) },
+  ];
+  if (isNum(d.ctlEquity)) rows.splice(3, 0, { label: 'Constant target', value: `${lakh(d.ctlEquity)}`, color: 'var(--ink-2)' });
+  return { rows };
+};
+
+function renderChart(r, name) {
+  const chart = $('chart');
+  const note = $('chartNote');
+  const all = Array.isArray(r.series) ? r.series : [];
+  const rows = chartRows(all, LIVE_KEYS);
+  const hasCtl = rows.length > 0 && rows.every((d) => isNum(d.ctlEquity));
+  if (rows.length < 2) {
+    chart.textContent = 'Not enough data for a chart.';
+    note.textContent = '';
+    return;
+  }
+  note.textContent = rows.length < all.length
+    ? `The chart starts on ${rows[0].date}: earlier days have no previous-month volatility figure.`
+    : '';
+  liveChart(chart, rows, { panels: livePanels(hasCtl), tooltip: planTooltip(name) });
 }
 
 function howHtml(r) {
   const p = r.params ?? {};
-  const q = r.vol?.sharpeParts ?? {};
-  const v = r.vol ?? {};
-  const rfd = isNum(q.rfd) ? q.rfd : (isNum(p.cashRate) ? p.cashRate / 252 : undefined);
-  const f = (t) => `<pre style="white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;margin:6px 0">${esc(t)}</pre>`;
+  const f = (t) => `<pre class="formula">${esc(t)}</pre>`;
   const para = (t) => `<p class="note" style="margin:8px 0">${esc(t)}</p>`;
-  const win = isNum(p.window) ? p.window : '-';
-  const minP = pctOr(p.minExposure, 0);
-  const maxP = pctOr(p.maxExposure, 0);
-  const costP = pctOr(p.cost, 2);
-  const cashP = pctOr(p.cashRate, 1);
-  const rfdP = pctOr(rfd, 4);
-  const sipAmt = shownOr(p.sip, inr);
-  const reset = p.rebalance === 'daily' ? 'every day' : 'at the last trading day of each month';
-  const sharpeLine = isNum(v.sharpe) && isNum(q.meanDaily) && isNum(q.sdDaily) && isNum(rfd)
-    ? `Sharpe = (${pct(q.meanDaily, 4)} - ${pct(rfd, 4)}) / ${pct(q.sdDaily, 4)} x ${Math.sqrt(252).toFixed(3)} = ${fx2(v.sharpe)}`
-    : '';
+  const monthly = shownOr(p.monthly, inr);
+  const maxP = shownOr(p.maxExposure, (x) => pct(x, 0));
+  const costP = shownOr(p.costBps, (x) => String(x));
   return [
-    para('Each number on this page comes from the daily closes of the selected index and the settings in the sidebar.'),
-    f(`daily return      r = close today / close yesterday - 1`),
-    f(`volatility        v = mean of r squared over the last ${win} trading days`),
-    f(`share in index    w = typical v so far / v, kept between ${minP} and ${maxP}`),
-    isNum(r.c) ? para(`The constant c = ${r.c.toExponential(3)}: chosen so the volatility-based plan would be as volatile as the index over the whole period (the paper's rule).`) : '',
-    r.c === null ? para('The constant is the running average of variance (no hindsight).') : '',
-    para(`The typical v so far is the average of v from the first full window to today. The volatility-based plan resets its share ${reset}. Each trade pays ${costP} of its rupee value. Idle cash earns ${cashP} a year.`),
-    para(`The monthly SIP buys ${sipAmt} on the first trading day of each month, from the cash in the pool.`),
-    f(`Sharpe ratio     (mean daily return - daily risk-free rate) / sd of daily returns x square root of 252`),
-    f(`daily risk-free  cash rate / 252 = ${rfdP}`),
-    f(`drawdown         value / highest value so far - 1`),
-    f(`Calmar ratio     annualised return (CAGR) / biggest fall`),
-    f(`CAGR             (final / pool) ^ (1 / years) - 1, years = calendar days / 365.25`),
-    sharpeLine ? para('Worked line for the volatility-based plan, from its daily return statistics:') + f(sharpeLine) : '',
+    para('Every number on this page comes from the daily closes of the selected index and the settings above. The price index has no dividends, and both plans use the same prices.'),
+    f(`contribution      ${monthly} on the first trading day of each calendar month, added to both plans at that day's close`),
+    f('realized variance RV(month) = sum of the squared daily index returns in that calendar month (no demeaning)'),
+    f(`target(month)     = min( (1 / RV of the previous month) / average of 1 / RV over all earlier months , ${maxP} )`),
+    para('The target is 0 in the first two months, which have no earlier estimate. No later month is used.'),
+    f(`DCA               buys the whole contribution at once; cost = value traded x ${costP} / 10,000`),
+    f(`VM                on contribution days: target value = equity x target; buys or sells the difference; cost = value traded x ${costP} / 10,000; idle cash earns 0%`),
+    f('daily return      = (equity today - contribution today) / equity yesterday - 1'),
+    f('TWR cumulative    = product of (1 + daily return) - 1'),
+    f('TWR CAGR          = (1 + TWR cumulative) ^ (1 / years) - 1, with years = number of daily returns / 252'),
+    f('annualized vol    = sd of daily returns x square root of 252'),
+    f('Sharpe (risk-free=0) = mean daily return x 252 / (sd of daily returns x square root of 252)'),
+    f('maximum drawdown  = lowest value of NAV / highest NAV so far - 1, where NAV is the growth index starting at 1 before the first day'),
+    f('money-weighted    = annual IRR of -contribution on each contribution date and +ending equity on the last date (days / 365)'),
   ].join('');
 }
 
 function ddHtml(r) {
-  const rows = [['Monthly SIP', r.sip], ['Volatility-based', r.vol]].flatMap(([label, p]) => (Array.isArray(p?.drawdownEpisodes) ? p.drawdownEpisodes.slice(0, 3) : [])
-    .map((e) => `<tr><td>${label}</td><td>${txt(e.peakDate)}</td><td>${txt(e.troughDate)}</td><td>${e.endDate ? txt(e.endDate) : 'not yet'}</td><td>${shownOr(e.depth, (x) => pct(x, 1))}</td><td>${shownOr(e.tradingDaysToTrough, String)}</td><td>${shownOr(e.tradingDaysToRecover, String)}</td></tr>`));
-  const head = ['Plan', 'Fall started', 'Lowest point', 'Recovered', 'Depth', 'Days down to the low', 'Days to recover'];
+  const rows = [['Monthly DCA', r.dca], ['Volatility-managed', r.vm]].flatMap(([label, p]) => (Array.isArray(p?.drawdownEpisodes) ? p.drawdownEpisodes.slice(0, 3) : [])
+    .map((e) => `<tr><td>${esc(label)}</td><td>${txt(e?.peakDate)}</td><td>${txt(e?.troughDate)}</td><td>${e?.endDate ? txt(e.endDate) : 'not recovered'}</td><td>${shownOr(e?.depth, (x) => pct(x, 2))}</td><td>${shownOr(e?.tradingDaysToTrough, String)}</td><td>${shownOr(e?.tradingDaysToRecover, String)}</td><td>${shownOr(e?.tradingDaysUnder, String)}</td></tr>`));
+  const head = ['Plan', 'Fall started', 'Lowest point', 'Recovered', 'Depth', 'Trading days to the low', 'Trading days to recover', 'Trading days under water'];
   return rows.length
-    ? `<div style="max-height:320px;overflow:auto"><table class="cmp"><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr>${rows.join('')}</table></div>`
+    ? `<div class="list-box"><table class="cmp"><tr>${head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>${rows.join('')}</table></div>`
     : '<p class="note">No falls to show.</p>';
 }
 
 function listTable(title, list, head, rowFn) {
   if (!Array.isArray(list)) return '';
   const body = list.length
-    ? `<div style="max-height:320px;overflow:auto"><table class="cmp"><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr>${list.slice(0, LIST_CAP).map(rowFn).join('')}</table></div>${list.length > LIST_CAP ? `<p class="note">First ${LIST_CAP} of ${list.length} shown; the CSV has all.</p>` : ''}`
+    ? `<div class="list-box"><table class="cmp"><tr>${head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>${list.slice(0, LIST_CAP).map(rowFn).join('')}</table></div>${list.length > LIST_CAP ? `<p class="note">First ${LIST_CAP} of ${list.length} shown; the CSV has all.</p>` : ''}`
     : '<p class="note">None.</p>';
   return `<p class="note" style="margin-top:12px"><b>${esc(title)}</b> (${list.length})</p>${body}`;
 }
 
 function tradesHtml(r) {
-  return listTable('Monthly SIP purchases', r.sip?.purchaseList, ['Date', 'Amount', 'Index price', 'Units'],
-    (x) => `<tr><td>${txt(x.date)}</td><td>${shownOr(x.amount, inr)}</td><td>${shownOr(x.price, fx2)}</td><td>${shownOr(x.units, (u) => u.toFixed(4))}</td></tr>`)
-    + listTable('Volatility-based trades', r.vol?.tradeList, ['Date', 'Buy or sell', 'Amount', 'Index price', 'Share of the pool in the index after the trade'],
-      (x) => `<tr><td>${txt(x.date)}</td><td>${txt(x.side)}</td><td>${shownOr(x.amount, inr)}</td><td>${shownOr(x.price, fx2)}</td><td>${shownOr(x.shareAfter, (s) => pct(s, 1))}</td></tr>`);
+  return listTable('Monthly DCA purchases', r.dca?.purchaseList, ['Date', 'Amount', 'Index price', 'Fee', 'Index units'],
+    (x) => `<tr><td>${txt(x.date)}</td><td>${inrOr(x.amount)}</td><td>${shownOr(x.price, fx2)}</td><td>${inrOr(x.fee)}</td><td>${shownOr(x.shares, (u) => u.toFixed(4))}</td></tr>`)
+    + listTable('Volatility-managed trades', r.vm?.tradeList, ['Date', 'Buy or sell', 'Amount', 'Index price', 'Fee', 'Share of the money in the index after the trade', 'Target'],
+      (x) => `<tr><td>${txt(x.date)}</td><td>${txt(x.side)}</td><td>${inrOr(x.value)}</td><td>${shownOr(x.price, fx2)}</td><td>${inrOr(x.fee)}</td><td>${shownOr(x.shareAfter, (s) => pct(s, 1))}</td><td>${shownOr(x.target, (t) => pct(t, 1))}</td></tr>`);
 }
 
-function renderExtras(r) {
-  const chartCard = $('chart').closest('.card') ?? $('chart');
-  const how = ensureAfter('howDetails', chartCard, 'details');
-  how.className = 'more';
-  how.innerHTML = `<summary>How each number is calculated</summary>${howHtml(r)}`;
-  const dd = ensureAfter('ddDetails', how, 'details');
-  dd.className = 'more';
-  dd.innerHTML = `<summary>The three biggest falls</summary>${ddHtml(r)}`;
-  const trades = ensureAfter('tradesDetails', dd, 'details');
-  trades.className = 'more';
-  trades.innerHTML = `<summary>Every investment, with dates and amounts</summary>${tradesHtml(r)}`;
-  const diff = ensureAfter('paperDiff', trades, 'details');
-  diff.id = 'paperDiff';
-  diff.className = 'more';
-  diff.innerHTML = `<summary>How this differs from the paper</summary>${paperDiffHtml(r)}`;
-}
-
-function paperDiffHtml(r) {
-  const yr = (s) => (typeof s === 'string' && /^\d{4}/.test(s) ? esc(s.slice(0, 4)) : null);
-  const from = yr(r.period?.from);
-  const to = yr(r.period?.to);
-  const ym = (s) => (typeof s === 'string' && /^\d{4}-\d{2}/.test(s) ? [Number(s.slice(0, 4)), Number(s.slice(5, 7))] : null);
-  const start = ym(r.period?.from);
-  const end = ym(r.period?.to);
-  const months = start && end ? (end[0] * 12 + end[1]) - (start[0] * 12 + start[1]) + 1 : null;
-  const range = from && to ? `, ${from} to ${to}` : '';
-  const obs = months !== null ? `, about ${months} monthly observations` : '';
-  const win = isNum(r.params?.window) ? `the last ${r.params.window} trading days` : 'the last trading days';
-  const items = [
-    `<b>Data.</b> The paper uses US factor returns from 1926 to 2015, 1,065 monthly observations (Table I). This page uses Nifty 50 and Bank Nifty price indices without dividends${range}${obs}. Power is much lower, and the paper's gains come from a few very volatile periods.`,
-    `<b>Returns.</b> The paper scales excess returns, return minus the risk-free rate. This page uses raw price returns unless you enter a rate in Settings, because no Indian risk-free series is bundled.`,
-    `<b>Leverage.</b> The paper's main strategy uses weights up to about 6.4 (99th percentile, Table V). A rupee pool cannot borrow, so this plan holds at most 100% of the pool in the index. That is the paper's No Leverage variant, whose alpha is 2.12% against 4.86% for the unconstrained rule (Table IV, page 45).`,
-    `<b>The constant c.</b> With the setting 'Set over the whole period' c makes the managed series as volatile as the index over the whole period, as in the paper (footnote 6). That uses hindsight, so the result is a back-test of the rule, not something that could have been run live. 'Running average of variance' avoids hindsight but is not the paper's rule.`,
-    `<b>Timing.</b> As in the paper, the share held in a month is set from volatility measured up to the last trading day of the previous month, with no look-ahead. Here volatility is ${win} of squared returns; the paper uses the month's daily returns with the mean removed.`,
-    `<b>The monthly SIP is not in the paper.</b> It buys a fixed amount each month from the same pool, so it starts almost entirely in cash. Comparing it with the volatility plan mixes how much was invested with when. The block 'Is the volatility signal doing anything?' removes that by using a constant share with the same average.`,
-    `<b>Statistics.</b> The Statistics tab follows the paper's monthly regression (equations 1 to 4). Its t-statistics are heteroskedasticity-robust (HC1), as in the paper's tables.`,
-  ];
-  return `<ul class="note">${items.map((t) => `<li style="margin:8px 0">${t}</li>`).join('')}</ul>`;
-}
-
-function controlHtml(r) {
-  const { vol, control, timingEffect: t } = r;
-  if (!vol || !control || !t) return '';
-  const both = (a, b) => isNum(a) && isNum(b);
-  const dIn = (a, b) => (both(a, b) ? signedInr(a - b) : '-');
-  const dNum = (a, b, d = 2) => (both(a, b) ? signedNum(a - b, d) : '-');
-  const dPts = (a, b) => (both(a, b) ? signedPts(a - b) : '-');
-  const vi = vol.investments ?? {};
-  const ci = control.investments ?? {};
-  const row = (label, a, c, d) => `<tr><td>${label}</td><td>${a}</td><td>${c}</td><td>${d}</td></tr>`;
-  const trow = (label, a, c, f, d) => row(label, shownOr(a, f), shownOr(c, f), d);
-  const ctlHead = isNum(control.share) ? `Constant share ${pct(control.share, 0)}` : 'Constant share';
-  const head = ['', 'Volatility-based', ctlHead, 'Difference'];
-  const table = `<div class="scroll-x"><table class="cmp"><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr>`
-    + trow('Final value', vol.final, control.final, inr, dIn(vol.final, control.final))
-    + trow('Profit or loss', vol.profit, control.profit, signedInr, dIn(vol.profit, control.profit))
-    + trow('Sharpe ratio', vol.sharpe, control.sharpe, fx2, dNum(vol.sharpe, control.sharpe))
-    + trow('Biggest fall', vol.maxDrawdown, control.maxDrawdown, pct, dPts(vol.maxDrawdown, control.maxDrawdown))
-    + trow('Calmar ratio', vol.calmar, control.calmar, fx2, dNum(vol.calmar, control.calmar))
-    + trow('Number of trades', vi.trades, ci.trades, String, dNum(vi.trades, ci.trades, 0))
-    + trow('Trading costs paid', vol.costTotal, control.costTotal, inr, dIn(vol.costTotal, control.costTotal))
-    + trow('Average share in the index', vi.averageShare, ci.averageShare, (x) => pct(x, 1), dPts(vi.averageShare, ci.averageShare))
-    + '</table></div>';
-  const sentence = isNum(control.share) && isNum(t.finalDiff) && isNum(t.sharpeDiff) && isNum(t.maxDrawdownDiff)
-    ? `A plan that simply held ${bold(pct(control.share, 0))} of the pool in the index at every month end ended ${bold(inr(Math.abs(t.finalDiff)))} ${t.finalDiff >= 0 ? 'lower' : 'higher'} than the volatility-based plan; its biggest fall was ${bold((Math.abs(t.maxDrawdownDiff) * 100).toFixed(1))} points ${t.maxDrawdownDiff > 0 ? 'deeper' : 'shallower'} and its Sharpe ratio ${t.sharpeDiff >= 0 ? 'lower' : 'higher'} by ${bold(Math.abs(t.sharpeDiff).toFixed(3))}.`
-    : '';
-  return '<h3>Is the volatility signal doing anything?</h3>'
-    + '<p class="note">Does changing the share with volatility do better than holding a constant share with the same average?</p>'
-    + table
-    + (sentence ? `<p style="margin-top:12px">${sentence}</p>` : '')
-    + '<p class="note">The constant-share plan has the same average exposure, so any difference comes from when the volatility plan held more or less, not from how much it held.</p>';
-}
-
-function renderControl(r) {
-  const html = controlHtml(r);
-  const box = ensureAfter('controlCard', $('cards'));
-  if (!box) return;
-  box.className = 'card';
-  box.style.marginTop = '16px';
-  box.hidden = !html;
-  box.innerHTML = html;
+function liveNone(message) {
+  $('verdict').textContent = message;
+  $('cards').hidden = true;
+  $('cards').innerHTML = '';
+  $('kpis').innerHTML = '';
+  $('controlCard').hidden = true;
+  $('chart').textContent = '';
+  $('chartNote').textContent = '';
 }
 
 function renderLive(data) {
   const { result: r, name } = data;
-  $('verdict').innerHTML = liveVerdict(r);
-  renderCards(r);
-  renderControl(r);
+  $('verdict').innerHTML = liveVerdict(r, name);
+  const cards = cardsHtml(r);
+  $('cards').innerHTML = cards;
+  $('cards').hidden = !cards;
   $('kpis').innerHTML = kpiTable(r);
-  kpiNote(r.params.cashRate);
-  const hasCtl = Array.isArray(r.series) && r.series.some((d) => isNum(d?.ctlValue));
-  liveChart($('chart'), r.series, { baseline: r.params.pool, panels: hasCtl ? CTL_PANELS : SIP_VOL_PANELS, tooltip: (d) => sipVolTooltip(d, name) });
-  renderExtras(r);
+  renderControl(r);
+  renderChart(r, name);
+  $('howBody').innerHTML = howHtml(r);
+  $('ddBody').innerHTML = ddHtml(r);
+  $('tradesBody').innerHTML = tradesHtml(r);
 }
 
 async function loadCompare() {
-  const [csvN, csvB] = await Promise.all([fetchText(BUNDLED.nifty), fetchText(BUNDLED.banknifty)]);
-  const common = { ...settings(), ...periodBody() };
+  const [csvN, csvB] = await Promise.all([fetchText(FILES.nifty50), fetchText(FILES.banknifty)]);
+  const body = settings();
   const [n, b] = await Promise.all([
-    cachedPost('api/compare', { csv: csvN, ...common }),
-    cachedPost('api/compare', { csv: csvB, ...common }),
+    cachedPost('api/dcavm', { csv: csvN, ...body }),
+    cachedPost('api/dcavm', { csv: csvB, ...body }),
   ]);
   return { n, b, merged: mergeSeries(n.series, b.series) };
 }
 
 const cmpTooltip = (d) => ({
   rows: [
-    { label: 'Nifty 50 close', value: Math.round(d.nClose).toLocaleString('en-IN'), color: 'var(--nifty)' },
-    { label: 'Bank Nifty close', value: Math.round(d.bClose).toLocaleString('en-IN'), color: 'var(--bank)' },
-    { label: 'Nifty 50 pool', value: `${lakh(d.nValue)}  (${pct(d.nW, 0)} in index)`, color: 'var(--nifty)' },
-    { label: 'Bank Nifty pool', value: `${lakh(d.bValue)}  (${pct(d.bW, 0)} in index)`, color: 'var(--bank)' },
-    { label: 'Fall from high (Nifty vs Bank)', value: `${pct(d.nDd)} vs ${pct(d.bDd)}` },
-    { label: 'Volatility (Nifty vs Bank)', value: `${pct(d.nVol)} vs ${pct(d.bVol)}` },
+    { label: 'Nifty 50 close', value: Math.round(d.nPrice).toLocaleString('en-IN'), color: 'var(--nifty)' },
+    { label: 'Bank Nifty close', value: Math.round(d.bPrice).toLocaleString('en-IN'), color: 'var(--bank)' },
+    { label: 'Nifty 50 volatility-managed', value: lakh(d.nVm), color: 'var(--nifty)' },
+    { label: 'Bank Nifty volatility-managed', value: lakh(d.bVm), color: 'var(--bank)' },
+    { label: 'Nifty 50 monthly DCA', value: lakh(d.nDca), color: 'var(--nifty)' },
+    { label: 'Bank Nifty monthly DCA', value: lakh(d.bDca), color: 'var(--bank)' },
+    { label: 'Fall from high, VM (Nifty vs Bank)', value: `${pct(d.nVmDd)} vs ${pct(d.bVmDd)}` },
+    { label: 'VM target (Nifty vs Bank)', value: `${pct(d.nVmTarget, 0)} / ${pct(d.bVmTarget, 0)}` },
   ],
 });
 
+const cmpCell = (x, f) => (isNum(x) ? f(x) : null);
+const intCell = (x) => cmpCell(x, (v) => Math.round(v).toLocaleString('en-IN'));
+const inrCell = (x) => cmpCell(x, (v) => inr(v));
+const pctCell = (x, d = 1) => cmpCell(x, (v) => pct(v, d));
+const ptsCell = (x) => cmpCell(x, (v) => signedPts(v, 2));
+const priceCell = (x) => cmpCell(x, (v) => v.toLocaleString('en-IN', { maximumFractionDigits: 2 }));
+const withWord = (x, word) => cmpCell(x, (v) => `${Math.round(v).toLocaleString('en-IN')} ${word}`);
+const joinCells = (parts) => { const ok = parts.filter((p) => p !== null); return ok.length ? ok.join(', ') : null; };
+const seriesLen = (o) => (Array.isArray(o.series) && o.series.length ? o.series.length : undefined);
+const weekendCount = (series) => series.filter((d) => { const w = new Date(`${d?.date}T00:00:00Z`).getUTCDay(); return w === 0 || w === 6; }).length;
+const ddPhrase = (d) => {
+  const pts = Math.abs(d * 100);
+  if (pts < 0.05) return 'left the maximum drawdown unchanged';
+  return `${d > 0 ? 'cut' : 'deepened'} the maximum drawdown by ${pts.toFixed(1)} points`;
+};
+const inrPhrase = (d) => (d >= 0 ? `${inr(d)} higher` : `${inr(-d)} lower`);
+
+function cmpCard(title, rows, after = '') {
+  const body = rows.filter((r) => r[1] !== null || r[2] !== null);
+  if (!body.length) return '';
+  const tr = body.map(([label, a, b]) => `<tr><td>${esc(label)}</td><td>${a ?? '-'}</td><td>${b ?? '-'}</td></tr>`).join('');
+  return `<div class="card cmp-extra" style="margin-top:16px"><h3>${esc(title)}</h3><div class="scroll-x"><table class="cmp"><tr><th></th><th>Nifty 50</th><th>Bank Nifty</th></tr>${tr}</table></div>${after}</div>`;
+}
+
+function renderCmpExtras(n, b, rho) {
+  let host = $('cmpExtras');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'cmpExtras';
+    $('tab-compare').appendChild(host);
+  }
+  const two = (label, fn) => [label, fn(n), fn(b)];
+  const diff = (o, key) => (isNum(o.vm?.[key]) && isNum(o.dca?.[key]) ? o.vm[key] - o.dca[key] : undefined);
+  const tim = (o, key) => (isNum(o.timingEffect?.[key]) ? o.timingEffect[key] : undefined);
+  const vi = (o) => o.vm?.investments ?? {};
+  const di = (o) => o.dca?.investments ?? {};
+  const annVol = (o) => (isNum(o.stats?.returns?.sd) ? o.stats.returns.sd * Math.sqrt(252) : undefined);
+
+  const inputs = cmpCard('The two input files', [
+    two('Source', (o) => (seriesLen(o) ? esc('NSE official file supplied by the owner') : null)),
+    two('Rows', (o) => intCell(seriesLen(o))),
+    two('First date', (o) => (o.period?.from ? txt(o.period.from) : null)),
+    two('Last date', (o) => (o.period?.to ? txt(o.period.to) : null)),
+    two('Dates on a Saturday or Sunday', (o) => (seriesLen(o) ? intCell(weekendCount(o.series)) : null)),
+    two('Index change over the period', (o) => pctCell(o.period?.indexChange, 2)),
+    two('Index biggest fall', (o) => pctCell(ownMaxFall(o.series), 2)),
+    two('Index volatility per year', (o) => pctCell(annVol(o), 2)),
+    ['Correlation of daily index returns', cmpCell(rho, fx2), cmpCell(rho, fx2)],
+  ]);
+
+  const dn = diff(n, 'maxDrawdown');
+  const db = diff(b, 'maxDrawdown');
+  const ddSentence = isNum(dn) && isNum(db)
+    ? `<p style="margin:12px 0 0">Volatility management ${ddPhrase(dn)} on Nifty 50 and ${ddPhrase(db)} on Bank Nifty.</p>`
+    : '';
+  const vmVsDca = cmpCard('What volatility management did to each index (VM minus DCA)', [
+    two('Ending equity (INR)', (o) => cmpCell(diff(o, 'endingEquity'), signedInr)),
+    two('TWR CAGR (pts)', (o) => cmpCell(diff(o, 'twrCagr'), ptsCell)),
+    two('Annualized volatility (pts)', (o) => cmpCell(diff(o, 'annVol'), ptsCell)),
+    two('Sharpe (risk-free=0)', (o) => cmpCell(diff(o, 'sharpe'), (v) => signedNum(v, 2))),
+    two('Maximum drawdown (pts)', (o) => cmpCell(diff(o, 'maxDrawdown'), ptsCell)),
+    two('Calmar ratio', (o) => cmpCell(diff(o, 'calmar'), (v) => signedNum(v, 2))),
+    two('Money-weighted return (pts)', (o) => cmpCell(diff(o, 'moneyWeightedReturn'), ptsCell)),
+  ], ddSentence);
+
+  const ed = tim(n, 'endingEquityDiff');
+  const eb = tim(b, 'endingEquityDiff');
+  const timingSentence = isNum(ed) && isNum(eb)
+    ? `<p style="margin:12px 0 0">Against a constant target share with the same average exposure, the volatility timing ended ${inrPhrase(ed)} on Nifty 50 and ${inrPhrase(eb)} on Bank Nifty.</p>`
+    : '';
+  const timing = cmpCard('Is the volatility signal doing anything, on each index?', [
+    two('Constant target share', (o) => pctCell(o.control?.share, 1)),
+    two('Ending equity: volatility-managed minus constant target (INR)', (o) => cmpCell(tim(o, 'endingEquityDiff'), signedInr)),
+    two('Sharpe difference', (o) => cmpCell(tim(o, 'sharpeDiff'), (v) => signedNum(v, 2))),
+    two('Maximum drawdown difference (positive = the volatility plan fell less)', (o) => ptsCell(tim(o, 'maxDrawdownDiff'))),
+    two('TWR CAGR difference', (o) => ptsCell(tim(o, 'twrCagrDiff'))),
+  ], timingSentence);
+
+  const money = cmpCard('How the money was invested', [
+    two('Monthly contributions (count and total put in)', (o) => joinCells([withWord(vi(o).contributions, 'contributions'), cmpCell(vi(o).totalContributions, (v) => `${inr(v)} in all`)])),
+    two('DCA purchases', (o) => joinCells([withWord(di(o).purchases, 'purchases'), cmpCell(di(o).totalBought, (v) => `${inr(v)} bought`)])),
+    two('DCA average index price paid', (o) => priceCell(di(o).averageBuyPrice)),
+    two('VM rebalances', (o) => intCell(vi(o).rebalances)),
+    two('VM trades', (o) => intCell(vi(o).trades)),
+    two('VM buys', (o) => intCell(vi(o).buys)),
+    two('VM sells', (o) => intCell(vi(o).sells)),
+    two('VM total bought', (o) => inrCell(vi(o).totalBought)),
+    two('VM total sold', (o) => inrCell(vi(o).totalSold)),
+    two('VM turnover', (o) => inrCell(vi(o).turnover)),
+    two('VM average target exposure', (o) => pctCell(vi(o).averageTargetExposure, 1)),
+    two('VM average money in the index', (o) => inrCell(vi(o).averageInIndex)),
+    two('VM least and most money in the index', (o) => (isNum(vi(o).lowestInIndex) && isNum(vi(o).peakInIndex) ? `${inr(vi(o).lowestInIndex)} / ${inr(vi(o).peakInIndex)}` : null)),
+  ]);
+
+  host.innerHTML = inputs + vmVsDca + timing + money;
+}
+
 function renderCompare({ n, b, merged }) {
-  const rho = correlation(returnsOf(merged.map((d) => d.nClose)), returnsOf(merged.map((d) => d.bClose)));
-  const crow = (label, x, y) => `<tr><td>${label}</td><td>${x}</td><td>${y}</td></tr>`;
-  const csec = (t) => `<tr class="sec"><td colspan="3">${t}</td></tr>`;
+  const dn = n.dca ?? {};
+  const vn = n.vm ?? {};
+  const db = b.dca ?? {};
+  const vb = b.vm ?? {};
+  const rho = merged.length > 3 ? correlation(priceReturns(merged, 'nPrice'), priceReturns(merged, 'bPrice')) : null;
+  const annVol = (o) => (isNum(o.stats?.returns?.sd) ? o.stats.returns.sd * Math.sqrt(252) : undefined);
+  const cr = (label, get, f) => `<tr><td>${esc(label)}</td><td>${shownOr(get(n), f)}</td><td>${shownOr(get(b), f)}</td></tr>`;
+  const csec = (t) => `<tr class="sec"><td colspan="3">${esc(t)}</td></tr>`;
+  const ddCell = (o, p) => {
+    const plan = o[p];
+    if (!isNum(plan?.maxDrawdown)) return '-';
+    const e = deepest(plan);
+    return pct(plan.maxDrawdown, 2) + (e ? `<span class="sub">${txt(e.peakDate)} to ${txt(e.troughDate)}</span>` : '');
+  };
+  const planRows = (p, title, countLabel, countGet) => csec(title)
+    + cr('Ending equity (INR)', (o) => o[p]?.endingEquity, inr)
+    + cr('Total contributions (INR)', (o) => o[p]?.totalContributions, inr)
+    + cr('TWR CAGR', (o) => o[p]?.twrCagr, (x) => pct(x, 2))
+    + cr('Annualized volatility', (o) => o[p]?.annVol, (x) => pct(x, 2))
+    + cr('Sharpe (risk-free=0)', (o) => o[p]?.sharpe, fx2)
+    + `<tr><td>Maximum drawdown</td><td>${ddCell(n, p)}</td><td>${ddCell(b, p)}</td></tr>`
+    + cr(countLabel, countGet, String);
+  const ratio = isNum(annVol(n)) && isNum(annVol(b)) && annVol(n) > 0 ? annVol(b) / annVol(n) : null;
   $('cmpTable').innerHTML = '<tr><th></th><th>Nifty 50</th><th>Bank Nifty</th></tr>'
     + csec('The index')
-    + crow('Index change over the period', pct(n.period.niftyChange), pct(b.period.niftyChange))
-    + crow('Index own biggest fall', pct(ownMaxFall(n.series)), pct(ownMaxFall(b.series)))
-    + crow('Index volatility over the period (per year)', pct(annualVol(n)), pct(annualVol(b)))
-    + crow('Correlation of daily returns', rho.toFixed(2), rho.toFixed(2))
-    + csec('Volatility-based plan on the pool')
-    + crow('Final value', inr(n.vol.final), inr(b.vol.final))
-    + crow('Profit or loss', signedInr(n.vol.profit), signedInr(b.vol.profit))
-    + crow('Return on the pool', pct(n.vol.returnPct), pct(b.vol.returnPct))
-    + crow('Biggest fall from a high', pct(n.vol.maxDrawdown) + sub(n.vol.troughDate), pct(b.vol.maxDrawdown) + sub(b.vol.troughDate))
-    + crow('Return per unit of risk (Sharpe)', n.vol.sharpe.toFixed(2), b.vol.sharpe.toFixed(2))
-    + crow('Average share in the index', pct(n.vol.avgExposure, 0), pct(b.vol.avgExposure, 0))
-    + crow('Trading costs paid', inr(n.vol.costTotal), inr(b.vol.costTotal))
-    + crow('Annualised return (CAGR)', vf(n.vol, 'cagr', pct), vf(b.vol, 'cagr', pct))
-    + crow('Calmar ratio', vf(n.vol, 'calmar', fx2), vf(b.vol, 'calmar', fx2))
-    + crow('Number of trades', vf(n.vol.investments, 'trades', String), vf(b.vol.investments, 'trades', String))
-    + crow('Total bought', vf(n.vol.investments, 'totalBought', inr), vf(b.vol.investments, 'totalBought', inr))
-    + crow('Total sold', vf(n.vol.investments, 'totalSold', inr), vf(b.vol.investments, 'totalSold', inr))
-    + csec('Monthly SIP on the pool')
-    + crow('Final value', inr(n.sip.final), inr(b.sip.final))
-    + crow('Return on the pool', pct(n.sip.returnPct), pct(b.sip.returnPct))
-    + crow('Biggest fall from a high', pct(n.sip.maxDrawdown), pct(b.sip.maxDrawdown))
-    + crow('Return on money actually put in (per year)', pct(n.sip.moneyWeightedReturn), pct(b.sip.moneyWeightedReturn))
-    + crow('Sharpe ratio', vf(n.sip, 'sharpe', fx2), vf(b.sip, 'sharpe', fx2))
-    + crow('Number of purchases', vf(n.sip.investments, 'purchases', String), vf(b.sip.investments, 'purchases', String))
-    + crow('Total put in', vf(n.sip.investments, 'totalPutIn', inr), vf(b.sip.investments, 'totalPutIn', inr));
-  const ratio = annualVol(b) / annualVol(n);
-  $('cmpVerdict').innerHTML = [
-    `Under the volatility-based plan the pool ended at ${bold(inr(n.vol.final))} in Nifty 50 and ${bold(inr(b.vol.final))} in Bank Nifty.`,
-    `The biggest fall from a high was ${bold(pct(n.vol.maxDrawdown))} for Nifty 50 and ${bold(pct(b.vol.maxDrawdown))} for Bank Nifty.`,
-    `Bank Nifty's volatility over the period was ${bold(ratio.toFixed(2))} times Nifty 50's.`,
-  ].join(' ') + notesHtml([...new Set([...n.notes, ...b.notes])]);
+    + cr('Index change over the period', (o) => o.period?.indexChange, (x) => pct(x, 2))
+    + cr('Index own biggest fall', (o) => ownMaxFall(o.series), (x) => pct(x, 2))
+    + cr('Index volatility over the period (per year)', annVol, (x) => pct(x, 2))
+    + (isNum(rho) ? `<tr><td>Correlation of daily index returns</td><td colspan="2" style="text-align:center">${fx2(rho)}</td></tr>` : '')
+    + planRows('vm', 'Volatility-managed', 'Trades', (o) => o.vm?.investments?.trades)
+    + planRows('dca', 'Monthly DCA', 'Purchases', (o) => o.dca?.investments?.purchases);
+  const parts = [];
+  if (isNum(vn.endingEquity) && isNum(vb.endingEquity) && isNum(dn.endingEquity) && isNum(db.endingEquity)) {
+    parts.push(`From ${txt(n.period?.from)} to ${txt(n.period?.to)}, the volatility-managed plan ended at ${bold(inr(vn.endingEquity))} on Nifty 50 and ${bold(inr(vb.endingEquity))} on Bank Nifty. The monthly DCA ended at ${bold(inr(dn.endingEquity))} and ${bold(inr(db.endingEquity))}.`);
+  }
+  if (isNum(vn.maxDrawdown) && isNum(vb.maxDrawdown)) {
+    parts.push(`The biggest fall from a high for the volatility-managed plan was ${bold(pct(vn.maxDrawdown, 2))} on Nifty 50 and ${bold(pct(vb.maxDrawdown, 2))} on Bank Nifty.`);
+  }
+  if (isNum(ratio)) parts.push(`Bank Nifty's annualized volatility over the period was ${bold(ratio.toFixed(2))} times Nifty 50's.`);
+  $('cmpVerdict').innerHTML = parts.join(' ') + notesHtml([...new Set([...(n.notes ?? []), ...(b.notes ?? [])])]);
   const chart = $('cmpChart');
-  if (merged.length < 2) chart.textContent = 'No dates in common between the two series.';
-  else liveChart(chart, merged, { baseline: n.params.pool, panels: CMP_PANELS, tooltip: cmpTooltip });
+  const rows = chartRows(merged, CMP_KEYS);
+  if (rows.length < 2) chart.textContent = 'No dates in common between the two series.';
+  else liveChart(chart, rows, { panels: CMP_PANELS, tooltip: cmpTooltip });
+  renderCmpExtras(n, b, rho);
 }
 
 async function loadStats() {
-  const rf = settings().cashRate;
   const cols = [];
-  for (const key of ['nifty', 'banknifty']) {
-    cols.push({ key, label: NAMES[key], body: { csv: await fetchText(BUNDLED[key]), from: STUDY_FROM, rf } });
-  }
-  for (const key of ['nifty', 'banknifty']) {
+  for (const key of ['nifty50', 'banknifty']) cols.push({ key, label: NAMES[key], csv: await fetchText(FILES[key]) });
+  for (const key of ['nifty50', 'banknifty']) {
     const o = state.overrides[key];
-    if (o) cols.push({ key: `file-${key}`, label: o.name, body: { csv: o.text, rf } });
+    if (o) cols.push({ key: `file-${key}`, label: o.name, csv: o.text });
   }
-  const res = await Promise.all(cols.map((c) => cachedPost('api/study', c.body)));
+  const res = await Promise.all(cols.map((c) => cachedPost('api/study', { csv: c.csv, rf: 0 })));
   return cols.map((c, i) => ({ key: c.key, label: c.label, res: res[i] }));
 }
 
@@ -651,7 +730,7 @@ function renderStats(cols) {
   const variantBody = cols.map((c) => {
     const vs = st(c).variants;
     if (!Array.isArray(vs) || !vs.length) return '';
-    const vrows = vs.map((v) => `<tr><td>${txt(v?.label)}</td><td>${pctOr(v?.alphaAnnual, 2)}</td><td>${numOr(v?.tAlphaRobust, 2)}</td><td>${numOr(v?.appraisalAnnual, 2)}</td><td>${numOr(v?.sharpeManaged, 2)}</td><td>${numOr(v?.avgAbsWeightChange, 2)}</td><td>${numOr(v?.breakEvenBp, 0)}</td><td>${seqOr([v?.weights?.p50, v?.weights?.p99], (x) => x.toFixed(2))}</td></tr>`).join('');
+    const vrows = vs.map((v) => `<tr><td>${txt(v?.label)}</td><td>${shownOr(v?.alphaAnnual, (x) => pct(x, 2))}</td><td>${numOr(v?.tAlphaRobust, 2)}</td><td>${numOr(v?.appraisalAnnual, 2)}</td><td>${numOr(v?.sharpeManaged, 2)}</td><td>${numOr(v?.avgAbsWeightChange, 2)}</td><td>${numOr(v?.breakEvenBp, 0)}</td><td>${seqOr([v?.weights?.p50, v?.weights?.p99], (x) => x.toFixed(2))}</td></tr>`).join('');
     return `<p class="note"><b>${esc(c.label)}</b></p><div class="scroll-x"><table class="cmp"><tr><th>Strategy</th><th>Alpha</th><th>t (robust)</th><th>Appraisal ratio</th><th>Sharpe (managed)</th><th>Average |change in weight|</th><th>Break-even (bp)</th><th>Weights P50 / P99</th></tr>${vrows}</table></div>`;
   }).join('');
   const variantsCard = variantBody
@@ -678,7 +757,7 @@ function renderStats(cols) {
       Math.abs(pa.tAlpha) < 2
         ? `The alpha of ${pct(pa.alphaAnnual, 2)} is not statistically different from zero at the usual 5% level (t = ${pa.tAlpha.toFixed(2)}).`
         : `The alpha of ${pct(pa.alphaAnnual, 2)} is statistically different from zero (t = ${pa.tAlpha.toFixed(2)}).`,
-      `The sample is ${s.n} months; the paper uses about 1,070 months, so treat small samples carefully.`,
+      `The sample is ${s.n} months; the paper uses 1,065 monthly observations, so treat small samples carefully.`,
     ];
     return `<p><b>${esc(c.label)}</b></p><ul>${items.map((t) => `<li>${t}</li>`).join('')}</ul>`;
   }).join('');
@@ -713,14 +792,15 @@ function downloadStats() {
   if (!data) { setStatus('Open the Statistics tab first.', true); return; }
   const obj = {};
   for (const c of data) obj[c.key] = c.res;
-  download('volatility-lab-statistics.json', JSON.stringify(obj, null, 2), 'application/json');
+  download('past-results-statistics.json', JSON.stringify(obj, null, 2), 'application/json');
 }
 
-function downloadLive() {
+function downloadDaily() {
   const data = state.data.live;
   if (!data) { setStatus('Nothing to download yet.', true); return; }
-  const r = data.result;
-  download(`volatility-lab-${data.key}-${r.period.from.slice(0, 4)}-to-${r.period.to.slice(0, 4)}.csv`, toCsv(r.series), 'text/csv');
+  const series = Array.isArray(data.result.series) ? data.result.series : [];
+  if (!series.length) { setStatus('No daily rows to download.', true); return; }
+  download(`past-results-${data.index}-daily.csv`, toCsv(series, Object.keys(series[0])), 'text/csv');
 }
 
 function downloadTrades() {
@@ -729,54 +809,309 @@ function downloadTrades() {
   const r = data.result;
   const list = (x) => (Array.isArray(x) ? x : []);
   const rows = [
-    ...list(r.sip?.purchaseList).map((p) => ['monthly-sip', p.date, 'buy', p.amount, p.price, p.fee, p.units]),
-    ...list(r.vol?.tradeList).map((t) => ['volatility-based', t.date, t.side, t.amount, t.price, t.fee, t.units]),
+    ...list(r.dca?.purchaseList).map((p) => ({ plan: 'monthly-dca', date: p.date, side: 'buy', amount: p.amount, price: p.price, fee: p.fee })),
+    ...list(r.vm?.tradeList).map((t) => ({ plan: 'volatility-managed', date: t.date, side: t.side, amount: t.value, price: t.price, fee: t.fee })),
   ];
   if (!rows.length) { setStatus('No investments to download.', true); return; }
-  const text = ['plan,date,side,amount,price,fee,units', ...rows.map((row) => row.map((v) => v ?? '').join(','))].join('\n') + '\n';
-  download(`volatility-lab-${data.key}-investments-${r.period.from.slice(0, 4)}-to-${r.period.to.slice(0, 4)}.csv`, text, 'text/csv');
+  download(`past-results-${data.index}-investments.csv`, toCsv(rows, ['plan', 'date', 'side', 'amount', 'price', 'fee']), 'text/csv');
 }
 
-async function loadSweep() {
-  let mod;
-  try {
-    mod = await import('./sweep.js');
-  } catch {
-    mod = null;
+const SOURCE_TEXT = 'NSE official file supplied by the owner';
+const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const weekday = (iso) => WEEKDAY[new Date(`${iso}T00:00:00Z`).getUTCDay()];
+const isWeekend = (iso) => ['Saturday', 'Sunday'].includes(weekday(iso));
+const DAILY_PAGE = 100;
+const CHECK_TOL = 1e-9;
+const DAILY_COLS = [
+  ['Date', (r) => r.date],
+  ['Price', (r) => r.price],
+  ['Daily_index_return', (r) => r.indexReturn],
+  ['Prior_month_RV', (r) => r.priorMonthRv],
+  ['VM_target_exposure', (r) => r.vmTarget],
+  ['DCA_contribution', (r) => r.contribution],
+  ['VM_contribution', (r) => r.contribution],
+  ['DCA_equity', (r) => r.dcaEquity],
+  ['VM_equity', (r) => r.vmEquity],
+  ['DCA_cash', (r) => r.dcaCash],
+  ['VM_cash', (r) => r.vmCash],
+  ['DCA_shares', (r) => r.dcaShares],
+  ['VM_shares', (r) => r.vmShares],
+  ['DCA_transaction_cost', (r) => r.dcaCost],
+  ['VM_transaction_cost', (r) => r.vmCost],
+  ['DCA_return', (r) => r.dcaReturn],
+  ['VM_return', (r) => r.vmReturn],
+];
+const CHECK_COLS = DAILY_COLS.slice(1);
+const SUMMARY_HEAD = ['Strategy', 'Ending equity (INR)', 'Total contributions (INR)', 'Profit vs contributions (INR)', 'TWR cumulative return', 'TWR CAGR', 'Annualized volatility', 'Sharpe (risk-free=0)', 'Maximum drawdown'];
+const SUMMARY_PLANS = [['DCA', 'dca'], ['VM', 'vm']];
+const summaryValues = (name, p) => [name, p.endingEquity, p.totalContributions, p.profit, p.twrCumulative, p.twrCagr, p.annVol, p.sharpe, p.maxDrawdown];
+const fmt4 = (v) => (isNum(v) ? v.toLocaleString('en-IN', { maximumFractionDigits: 4 }) : '');
+const fmt6 = (v) => (isNum(v) ? v.toLocaleString('en-IN', { maximumFractionDigits: 6 }) : '-');
+const dataDaily = () => (Array.isArray(state.data.data?.result?.daily) ? state.data.data.result.daily : null);
+const monthEnds = (daily) => {
+  const last = new Map();
+  for (const r of daily) last.set(r.date.slice(0, 7), r);
+  return [...last.values()];
+};
+const csvField = (v) => {
+  const s = isNum(v) ? String(v) : (typeof v === 'string' ? v : '');
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+const fullCsv = (cols, rows) => [cols.map(([h]) => h).join(','), ...rows.map((r) => cols.map(([, f]) => csvField(f(r))).join(','))].join('\n') + '\n';
+const cellOf = (v) => {
+  if (typeof v === 'string') return `<td>${esc(v)}</td>`;
+  if (isNum(v)) return `<td title="${esc(String(v))}">${esc(fmt4(v))}</td>`;
+  return '<td></td>';
+};
+const gridTable = (cols, rows) => `<table class="cmp"><tr>${cols.map(([h]) => `<th>${esc(h)}</th>`).join('')}</tr>${rows.map((r) => `<tr>${cols.map(([, f]) => cellOf(f(r))).join('')}</tr>`).join('')}</table>`;
+
+async function loadData() {
+  const index = state.index;
+  const o = state.overrides[index];
+  const csv = o ? o.text : await fetchText(FILES[index]);
+  const result = await cachedPost('api/dcavm', { csv, ...settings(), includeDaily: true });
+  return { index, name: o ? o.name : NAMES[index], source: o ? o.name : SOURCE_TEXT, result };
+}
+
+function inputCard(data, daily) {
+  const weekends = daily.filter((r) => isWeekend(r.date)).map((r) => `${r.date} (${weekday(r.date)})`);
+  const weekendText = weekends.length
+    ? `${weekends.length} ${weekends.length === 1 ? 'date falls' : 'dates fall'} on a Saturday or Sunday: ${weekends.map((w) => esc(w)).join(', ')}. These are real trading sessions (special sessions on weekends), so they are kept in every number on this page.`
+    : 'No date in this input falls on a Saturday or Sunday.';
+  const edge = daily.length <= 10 ? daily : [...daily.slice(0, 5), null, ...daily.slice(-5)];
+  const edgeRows = edge.map((r) => (r
+    ? `<tr><td>${esc(r.date)}</td><td title="${esc(String(r.price))}">${esc(fmt4(r.price))}</td></tr>`
+    : '<tr><td>...</td><td></td></tr>')).join('');
+  return `<div class="card"><h3>The input data</h3>`
+    + `<table class="cmp"><tr><td style="text-align:left">Source</td><td style="text-align:left">${esc(data.source)}</td></tr>`
+    + `<tr><td style="text-align:left">Rows used in this run</td><td style="text-align:left">${daily.length}</td></tr>`
+    + `<tr><td style="text-align:left">First date</td><td style="text-align:left">${esc(daily[0].date)}</td></tr>`
+    + `<tr><td style="text-align:left">Last date</td><td style="text-align:left">${esc(daily.at(-1).date)}</td></tr></table>`
+    + `<p class="note" style="margin-top:12px">${weekendText}</p>`
+    + `<div class="list-box" style="margin-top:12px"><table class="cmp"><tr><th>Date</th><th>Close</th></tr>${edgeRows}</table></div>`
+    + `<p style="margin-top:12px"><button class="btn ghost" type="button" data-act="dl-input">Download the input as CSV</button></p></div>`;
+}
+
+function summaryCard(r) {
+  const body = SUMMARY_PLANS.map(([name, key]) => `<tr>${summaryValues(name, r[key] ?? {}).map((v, i) => (i === 0
+    ? `<td>${esc(v)}</td>`
+    : (isNum(v) ? `<td title="${esc(String(v))}">${esc(fmt6(v))}</td>` : '<td>-</td>'))).join('')}</tr>`).join('');
+  return `<div class="card"><h3>Summary metrics</h3>`
+    + '<p class="note">The same columns as summary_metrics.csv. Money is in rupees. Returns, volatility and drawdown are fractions, so 0.137754 is 13.78%.</p>'
+    + `<div class="scroll-x" style="margin-top:12px"><table class="cmp"><tr>${SUMMARY_HEAD.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>${body}</table></div>`
+    + '<p style="margin-top:12px"><button class="btn ghost" type="button" data-act="dl-summary">Download summary_metrics.csv</button></p></div>';
+}
+
+function monthlyCard(daily) {
+  const rows = monthEnds(daily);
+  return `<div class="card"><h3>Every month</h3>`
+    + `<p class="note">The last trading day of each calendar month, as in backtest_monthly.csv. ${rows.length} months. Hover a number to see its full value.</p>`
+    + `<div class="list-box" style="max-height:420px;margin-top:12px">${gridTable(DAILY_COLS, rows)}</div>`
+    + '<p style="margin-top:12px"><button class="btn ghost" type="button" data-act="dl-monthly">Download backtest_monthly.csv</button></p></div>';
+}
+
+function dailyBodyHtml(daily) {
+  const v = state.dataView;
+  const rows = daily.filter((r) => (!v.from || r.date >= v.from) && (!v.to || r.date <= v.to));
+  const pages = Math.max(1, Math.ceil(rows.length / DAILY_PAGE));
+  v.page = Math.min(Math.max(0, v.page), pages - 1);
+  const slice = rows.slice(v.page * DAILY_PAGE, (v.page + 1) * DAILY_PAGE);
+  const info = rows.length
+    ? `Rows ${v.page * DAILY_PAGE + 1} to ${v.page * DAILY_PAGE + slice.length} of ${rows.length}. Page ${v.page + 1} of ${pages}.`
+    : 'No trading days in this date range.';
+  return `<p class="note">${esc(info)}</p>`
+    + `<div class="list-box">${gridTable(DAILY_COLS, slice)}</div>`
+    + `<p style="margin-top:12px"><button class="btn ghost" type="button" data-act="prev"${v.page <= 0 ? ' disabled' : ''}>Previous</button> `
+    + `<button class="btn ghost" type="button" data-act="next"${v.page >= pages - 1 ? ' disabled' : ''}>Next</button></p>`;
+}
+
+function renderDailyBody() {
+  const daily = dataDaily();
+  if (daily) $('dailyBody').innerHTML = dailyBodyHtml(daily);
+}
+
+function dailyCard(daily) {
+  const v = state.dataView;
+  const lo = esc(daily[0].date);
+  const hi = esc(daily.at(-1).date);
+  return `<div class="card"><h3>Every day</h3>`
+    + `<p class="note">Every trading day with the same 17 columns as backtest_daily.csv. ${daily.length} days in all. Pick a From or To date to filter the table; the download always has every day.</p>`
+    + `<div class="settings"><label class="field">From<input type="date" data-act="from" min="${lo}" max="${hi}" value="${esc(v.from)}"></label>`
+    + `<label class="field">To<input type="date" data-act="to" min="${lo}" max="${hi}" value="${esc(v.to)}"></label></div>`
+    + `<div id="dailyBody" style="margin-top:12px">${dailyBodyHtml(daily)}</div>`
+    + '<p style="margin-top:12px"><button class="btn ghost" type="button" data-act="dl-daily">Download backtest_daily.csv</button></p></div>';
+}
+
+function parseCsvGrid(text) {
+  const src = text.replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let quoted = false;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (quoted) {
+      if (c === '"' && src[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') quoted = false;
+      else cell += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+    else if (c !== '\r') cell += c;
   }
-  if (!mod || typeof mod.renderSweep !== 'function') return { mod: null };
-  const rows = parseCsv(await csvFor(state.index));
-  return {
-    mod,
-    rows,
-    index: state.index,
-    opts: {
-      window: Number($('window').value),
-      cap: Number($('maxExp').value) / 100,
-      cost: Number($('cost').value) / 100,
-      cashRate: Number($('cash').value) / 100,
-      scaling: $('scaling').value,
-      startDate: '2019-01-02',
-    },
-  };
+  row.push(cell);
+  rows.push(row);
+  return rows.filter((r) => r.some((x) => x.trim() !== ''));
 }
 
-function renderSweepTab(data) {
-  const root = $('sweepRoot');
-  if (!data.mod) {
-    root.textContent = 'The sweep module is not available yet.';
+const parseCheckCell = (raw) => {
+  if (raw === '' || raw.toLowerCase() === 'nan') return null;
+  const x = Number(raw);
+  return Number.isFinite(x) ? x : undefined;
+};
+
+function checkHtml(text, daily) {
+  const grid = parseCsvGrid(text);
+  if (grid.length < 2) return '<p class="note">That file has no data rows.</p>';
+  const head = grid[0].map((h) => h.trim());
+  const dateAt = head.indexOf('Date');
+  if (dateAt < 0) return '<p class="note">That file has no Date column, so its rows cannot be matched to this page.</p>';
+  const cols = CHECK_COLS.filter(([h]) => head.includes(h));
+  const absent = CHECK_COLS.map(([h]) => h).filter((h) => !head.includes(h));
+  const unknown = head.filter((h, i) => h && i !== dateAt && !DAILY_COLS.some(([n]) => n === h));
+  const byDate = new Map(daily.map((r) => [r.date, r]));
+  const seen = new Set();
+  let rowsMatched = 0;
+  let compared = 0;
+  let matched = 0;
+  let worst = null;
+  const mismatches = [];
+  for (const line of grid.slice(1)) {
+    const date = (line[dateAt] ?? '').trim();
+    const row = byDate.get(date);
+    if (!row) continue;
+    rowsMatched++;
+    seen.add(date);
+    for (const [h, f] of cols) {
+      const raw = (line[head.indexOf(h)] ?? '').trim();
+      const want = parseCheckCell(raw);
+      const have = f(row);
+      compared++;
+      if (want === null && have === null) { matched++; continue; }
+      if (want === null || want === undefined || have === null) { mismatches.push([date, h, have, raw]); continue; }
+      const diff = Math.abs(have - want);
+      const rel = diff / (Math.abs(want) || 1);
+      if (!worst || rel > worst.rel) worst = { rel, date, h };
+      if (diff <= Math.max(CHECK_TOL, Math.abs(want) * CHECK_TOL)) matched++;
+      else mismatches.push([date, h, have, raw]);
+    }
+  }
+  const lines = [
+    `Rows in your file: ${grid.length - 1}. Rows whose date is on this page: ${rowsMatched}. Rows with no date on this page (not compared): ${grid.length - 1 - rowsMatched}.`,
+    `Days on this page with no row in your file (not compared): ${daily.length - seen.size}. For a monthly file this is expected, because only month-end rows are in it.`,
+    `Values compared: ${compared}. Matched: ${matched}. Mismatched: ${mismatches.length}.`,
+    worst
+      ? `Largest relative difference: ${worst.rel.toExponential(2)} (${worst.date}, ${worst.h}). Relative to your file's value, or absolute when that value is 0.`
+      : 'Largest relative difference: none, because no numeric values were compared.',
+  ];
+  if (absent.length) lines.push(`Columns missing from your file (not compared): ${absent.join(', ')}.`);
+  if (unknown.length) lines.push(`Columns in your file that this page does not produce (ignored): ${unknown.join(', ')}.`);
+  const verdict = compared === 0
+    ? 'Nothing was compared, so this file does not overlap this page.'
+    : mismatches.length === 0
+      ? 'Every compared value matches your script output.'
+      : `${mismatches.length} ${mismatches.length === 1 ? 'value differs' : 'values differ'} from your script output.`;
+  const table = mismatches.length
+    ? `<p class="note" style="margin-top:12px">First ${Math.min(10, mismatches.length)} of ${mismatches.length} mismatches:</p><div class="list-box" style="margin-top:8px"><table class="cmp"><tr><th>Date</th><th>Column</th><th>This page</th><th>Your file</th></tr>${mismatches.slice(0, 10).map(([d, h, have, raw]) => `<tr><td>${esc(d)}</td><td>${esc(h)}</td><td>${esc(have === null ? '-' : String(have))}</td><td>${esc(raw === '' ? '-' : raw)}</td></tr>`).join('')}</table></div>`
+    : '';
+  return `<p class="verdict" style="margin-top:12px">${esc(verdict)}</p>`
+    + lines.map((t) => `<p class="note" style="margin-top:8px">${esc(t)}</p>`).join('')
+    + table;
+}
+
+function checkCard() {
+  return '<div class="card"><h3>Check against your own script output</h3>'
+    + '<p class="note">Pick the backtest_daily.csv or backtest_monthly.csv that your script wrote. Rows are matched by Date and every numeric column is compared with this page, using the settings above. A value matches when it differs by no more than the larger of 1e-9 and 1e-9 times your file value.</p>'
+    + '<label class="field" style="margin-top:12px">Your script output (.csv)<input type="file" accept=".csv,text/csv" data-act="check"></label>'
+    + '<div id="checkBody"></div></div>';
+}
+
+function renderCheck() {
+  const box = $('checkBody');
+  if (!box) return;
+  const f = state.dataView.file;
+  const daily = dataDaily();
+  if (!f) { box.innerHTML = ''; return; }
+  if (!daily) { box.innerHTML = '<p class="note">Open the All data tab first.</p>'; return; }
+  box.innerHTML = `<p class="note" style="margin-top:12px">Checking ${esc(f.name)} against this page.</p>${checkHtml(f.text, daily)}`;
+}
+
+async function onCheckFile(input) {
+  const file = input.files[0];
+  if (!file) { state.dataView.file = null; renderCheck(); return; }
+  if (file.size > MAX_FILE_BYTES) {
+    input.value = '';
+    setStatus('That file is over 5 MB; choose a smaller CSV.', true);
     return;
   }
-  data.mod.renderSweep(root, data.rows, data.opts);
+  try {
+    state.dataView.file = { name: file.name, text: await file.text() };
+  } catch {
+    setStatus('Could not read that file.', true);
+    return;
+  }
+  renderCheck();
 }
 
-const LOADERS = { live: loadLive, compare: loadCompare, stats: loadStats, sweep: loadSweep };
-const RENDERERS = { live: renderLive, compare: renderCompare, stats: renderStats, sweep: renderSweepTab };
+function renderData(data) {
+  const daily = Array.isArray(data.result.daily) ? data.result.daily : [];
+  if (daily.length < 2) {
+    $('dataRoot').textContent = 'No daily rows came back for this run.';
+    return;
+  }
+  $('dataRoot').innerHTML = inputCard(data, daily) + summaryCard(data.result) + monthlyCard(daily) + dailyCard(daily) + checkCard();
+  renderCheck();
+}
+
+function downloadData(kind) {
+  const data = state.data.data;
+  const daily = dataDaily();
+  if (!data || !daily) { setStatus('Open the All data tab first.', true); return; }
+  const r = data.result;
+  if (kind === 'input') download(`input_${data.index}.csv`, fullCsv([['Date', (x) => x.date], ['Close', (x) => x.price]], daily), 'text/csv');
+  if (kind === 'summary') download('summary_metrics.csv', [SUMMARY_HEAD.join(','), ...SUMMARY_PLANS.map(([name, key]) => summaryValues(name, r[key] ?? {}).map(csvField).join(','))].join('\n') + '\n', 'text/csv');
+  if (kind === 'monthly') download('backtest_monthly.csv', fullCsv(DAILY_COLS, monthEnds(daily)), 'text/csv');
+  if (kind === 'daily') download('backtest_daily.csv', fullCsv(DAILY_COLS, daily), 'text/csv');
+}
+
+function onDataClick(e) {
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (act === 'prev' || act === 'next') {
+    state.dataView.page += act === 'next' ? 1 : -1;
+    renderDailyBody();
+  } else if (act && act.startsWith('dl-')) {
+    downloadData(act.slice(3));
+  }
+}
+
+function onDataChange(e) {
+  const act = e.target.dataset.act;
+  if (act === 'from' || act === 'to') {
+    state.dataView[act] = e.target.value;
+    state.dataView.page = 0;
+    renderDailyBody();
+  } else if (act === 'check') {
+    onCheckFile(e.target);
+  }
+}
+
+const LOADERS = { live: loadLive, compare: loadCompare, stats: loadStats, data: loadData };
+const RENDERERS = { live: renderLive, compare: renderCompare, stats: renderStats, data: renderData };
 const SUMMARIES = {
-  live: (d) => `Done: ${d.result.series.length} trading days${state.overrides[d.index] ? ` from ${state.overrides[d.index].name}` : ''}.`,
+  live: (d) => `Done: ${d.result.series?.length ?? 0} trading days${state.overrides[d.index] ? ` from ${state.overrides[d.index].name}` : ''}.`,
   compare: (d) => `Done: ${d.merged.length} common trading days.`,
   stats: (d) => `Done: statistics for ${d.length} series.`,
-  sweep: (d) => (d.mod ? `Done: parameter sweep for ${NAMES[d.index] ?? d.index}.` : 'The sweep module is not available yet.'),
+  data: (d) => `Done: ${d.result.daily?.length ?? 0} trading days in the daily table.`,
 };
 
 async function refresh() {
@@ -790,7 +1125,10 @@ async function refresh() {
     RENDERERS[tab](data);
     setStatus(SUMMARIES[tab](data));
   } catch (err) {
-    if (token === state.token) setStatus(err.message || 'Something went wrong.', true);
+    if (token !== state.token) return;
+    if (tab === 'live') liveNone('The live numbers could not be computed.');
+    if (tab === 'data') $('dataRoot').innerHTML = '';
+    setStatus(err.message || 'Something went wrong.', true);
   }
 }
 
@@ -807,17 +1145,9 @@ function selectTab(tab) {
 }
 
 function rerender() {
+  if (state.tab === 'data') return;
   const data = state.data[state.tab];
   if (data) RENDERERS[state.tab](data);
-}
-
-function wireSeg(id, onPick) {
-  const buttons = [...$(id).querySelectorAll('button')];
-  buttons.forEach((btn) => btn.addEventListener('click', () => {
-    buttons.forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
-    onPick(btn.dataset.v);
-    refresh();
-  }));
 }
 
 async function onFile(e) {
@@ -839,25 +1169,15 @@ async function onFile(e) {
 }
 
 function init() {
-  state.index = pressed('index') || 'nifty';
-  state.range = pressed('range') || 'max';
-  wireSeg('index', (v) => { state.index = v; });
-  wireSeg('range', (v) => { state.range = v; });
+  state.index = $('index').value || 'nifty50';
+  $('index').addEventListener('change', (e) => { state.index = e.target.value; refresh(); });
   SETTING_IDS.forEach((id) => $(id).addEventListener('change', debounce(refresh, 300)));
   $('file').addEventListener('change', onFile);
-  const dl = $('download');
-  dl.addEventListener('click', downloadLive);
-  let dt = $('downloadTrades');
-  if (!dt) {
-    dt = document.createElement('button');
-    dt.id = 'downloadTrades';
-    dt.type = 'button';
-    dt.className = dl.className;
-    dt.textContent = 'Download every investment (CSV)';
-    dl.after(dt);
-  }
-  dt.addEventListener('click', downloadTrades);
+  $('download').addEventListener('click', downloadDaily);
+  $('downloadTrades').addEventListener('click', downloadTrades);
   $('downloadStats').addEventListener('click', downloadStats);
+  $('dataRoot').addEventListener('click', onDataClick);
+  $('dataRoot').addEventListener('change', onDataChange);
   const tabButtons = TABS.map((t) => $(`t-${t}`));
   tabButtons.forEach((btn, i) => {
     btn.addEventListener('click', () => selectTab(TABS[i]));

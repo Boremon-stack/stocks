@@ -174,3 +174,25 @@ details.more summary { cursor: pointer; font: 600 13px var(--sans); color: var(-
   .tabs button { padding: 10px 10px; font-size: 13px; }
   .lc-head { padding-left: 0; }
 }
+
+/* past results: plan cards, headline stats, lists */
+.sub { display: block; font: 12px/1.45 var(--sans); color: var(--muted); font-weight: 400; }
+.plan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.plan-grid[hidden] { display: none; }
+.plan-grid > * { min-width: 0; }
+.plan { background: var(--card); border: 1px solid var(--rule); border-top: 3px solid var(--plan, var(--ink)); border-radius: 14px; padding: 18px; }
+.plan h3 { margin-bottom: 12px; color: var(--plan, var(--ink)); }
+.plan-dca { --plan: var(--sip); }
+.plan-vm { --plan: var(--vol); }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.stat { background: var(--paper); border: 1px solid var(--rule); border-radius: 12px; padding: 12px; min-width: 0; }
+.stat .lbl { font: 13px var(--sans); color: var(--muted); }
+.stat .val { font: 600 1.3rem var(--sans); color: var(--ink); margin: 4px 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.list-box { max-height: 320px; overflow: auto; }
+.list-box table.cmp th { position: sticky; top: 0; background: var(--card); }
+@media (max-width: 760px) {
+  .plan-grid { grid-template-columns: 1fr; }
+}
+
+/* all data tab: cards stack with spacing */
+#dataRoot > .card + .card { margin-top: 16px; }

@@ -216,107 +216,9 @@ test('engine reproduces the paper market result on the paper data (alpha, beta, 
   close(t.appraisalAnnual, 0.34, 0.02);
 });
 
-import { compareSipVsVol } from '../public/js/backtest.js';
-const bundled = (name) => parseCsv(readFileSync(new URL(`../public/data/${name}.csv`, import.meta.url), 'utf8'));
-const nifty5y = bundled('nifty');
-const bank = bundled('banknifty');
-const SUMMARY = ['final', 'profit', 'returnPct', 'maxDrawdown', 'longestUnderwaterDays', 'worstDay', 'bestDay', 'costTotal', 'avgExposure', 'annVol', 'sharpe'];
-
-const CONFIGS = [
-  ['nifty', nifty5y, 60, 'monthly', null, 'variance', 'paper'],
-  ['nifty', nifty5y, 60, 'daily', null, 'variance', 'paper'],
-  ['nifty', nifty5y, 24, 'monthly', null, 'variance', 'average'],
-  ['nifty', nifty5y, 24, 'monthly', null, 'variance', 'paper'],
-  ['nifty', nifty5y, 0, 'monthly', '2019-01-02', 'variance', 'paper'],
-  ['nifty', nifty5y, 0, 'daily', '2019-01-02', 'variance', 'paper'],
-  ['nifty', nifty5y, 0, 'monthly', '2019-01-02', 'volatility', 'paper'],
-  ['nifty', nifty5y, 0, 'monthly', '2019-01-02', 'variance', 'average'],
-  ['banknifty', bank, 0, 'monthly', '2019-01-02', 'variance', 'paper'],
-];
-for (const [name, rows, months, rebalance, startDate, scaling, calibration] of CONFIGS) {
-  test(`SIP versus volatility plan matches the pandas reference (${name}, ${months || 'max'} months, ${rebalance} reset, ${scaling} scaling, ${calibration} calibration)`, () => {
-    const want = JSON.parse(readFileSync(new URL(`./reference_compare_${name}_${months}_${rebalance}_${scaling}_${calibration}.json`, import.meta.url), 'utf8'));
-    const got = compareSipVsVol(rows, { months: months || 120, rebalance, startDate, scaling, calibration });
-    const mismatches = [];
-    const near = (a, b) => (a === null || b === null ? a === b : Math.abs(a - b) <= Math.max(1e-7, Math.abs(b) * 1e-9));
-    const cmp = (label, a, b) => {
-      const ok = typeof b === 'number' || b === null ? (typeof a === 'number' || a === null) && near(a, b) : a === b;
-      if (!ok) mismatches.push(`${label}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`);
-    };
-    const walk = (label, a, b) => {
-      if (b && typeof b === 'object' && !Array.isArray(b)) { for (const k of Object.keys(b)) walk(`${label}.${k}`, a?.[k], b[k]); }
-      else if (Array.isArray(b)) { cmp(`${label}.length`, a?.length, b.length); b.forEach((x, i) => walk(`${label}[${i}]`, a?.[i], x)); }
-      else cmp(label, a, b);
-    };
-    cmp('period.from', got.period.from, want.from_);
-    cmp('period.to', got.period.to, want.to);
-    cmp('period.days', got.period.days, want.days);
-    cmp('period.niftyChange', got.period.niftyChange, want.niftyChange);
-    for (const who of ['sip', 'vol', 'control']) {
-      const fixture = { ...want[who] };
-      delete fixture.purchaseList;
-      delete fixture.tradeList;
-      walk(who, got[who], fixture);
-    }
-    walk('sip.purchaseList', got.sip.purchaseList, want.sip.purchaseList);
-    walk('vol.tradeList', got.vol.tradeList, want.vol.tradeList);
-    walk('control.tradeList', got.control.tradeList, want.control.tradeList);
-    walk('timingEffect', got.timingEffect, want.timingEffect);
-    walk('regression', got.regression, want.regression);
-    const w = got.series.map((d) => d.volWeight);
-    cmp('mean_weight', w.reduce((a, b) => a + b, 0) / w.length, want.mean_weight);
-    cmp('min_weight', Math.min(...w), want.min_weight);
-    cmp('max_weight', Math.max(...w), want.max_weight);
-    cmp('last_sip_value', got.series.at(-1).sipValue, want.last_sip_value);
-    cmp('last_vol_value', got.series.at(-1).volValue, want.last_vol_value);
-    if (got.c !== undefined) cmp('c', got.c, want.c);
-    assert.deepEqual(mismatches, []);
-  });
-}
-
-test('SIP makes one purchase a month of exactly the monthly amount and the pool never goes negative', () => {
-  const got = compareSipVsVol(nifty5y, { months: 60, sip: 10000 });
-  assert.equal(got.sip.investments.purchases, 60);
-  close(got.sip.investments.totalPutIn, 600000, 1e-6);
-  assert.ok(got.series.every((d) => d.sipValue > 0 && d.volValue > 0));
-});
-
-test('every volatility trade happens on the first day of the period or on the last trading day of a month', () => {
-  const got = compareSipVsVol(nifty5y, { months: 60, rebalance: 'monthly' });
-  const monthEnds = new Set();
-  for (let i = 0; i + 1 < nifty5y.length; i++) {
-    if (nifty5y[i].date.slice(0, 7) !== nifty5y[i + 1].date.slice(0, 7)) monthEnds.add(nifty5y[i].date);
-  }
-  const first = got.series[0].date;
-  assert.ok(got.vol.tradeList.length > 0);
-  for (const t of got.vol.tradeList) assert.ok(t.date === first || monthEnds.has(t.date), `trade on ${t.date}`);
-});
-
-test('the volatility plan holds less when the 20-day volatility is high', () => {
-  const got = compareSipVsVol(nifty5y, { months: 60, rebalance: 'daily' });
-  const hi = got.series.filter((d) => d.vol > 0.25).map((d) => d.volWeight);
-  const lo = got.series.filter((d) => d.vol < 0.1).map((d) => d.volWeight);
-  assert.ok(hi.length > 5 && lo.length > 5);
-  assert.ok(hi.reduce((a, b) => a + b, 0) / hi.length < lo.reduce((a, b) => a + b, 0) / lo.length);
-});
-
-for (const cashRate of [0.065, 0]) {
-  test(`profit equals index gain plus interest minus costs for both plans (cashRate ${cashRate})`, () => {
-    const got = compareSipVsVol(nifty5y, { months: 24, rebalance: 'monthly', cashRate });
-    for (const who of ['sip', 'vol']) {
-      const c = got[who].components;
-      assert.ok(Math.abs(c.indexGain + c.interest - c.costs - (got[who].final - 1000000)) < 1e-6, `${who} residual`);
-    }
-  });
-}
-
-test('the entry fee is charged once', () => {
-  const got = compareSipVsVol(nifty5y, { months: 24, rebalance: 'monthly', cashRate: 0, cost: 0.001 });
-  close(got.series[0].volCost, got.vol.tradeList[0].fee, 1e-9);
-  close(got.series.reduce((a, d) => a + d.volCost, 0), got.vol.costTotal, 1e-6);
-  close(got.series.reduce((a, d) => a + d.sipCost, 0), got.sip.costTotal, 1e-6);
-});
-
+const bundled = (file) => parseCsv(readFileSync(new URL(`../test/data/${file}`, import.meta.url), 'utf8'));
+const nifty5y = bundled('nifty_yahoo_2018_2026.csv');
+const bank = bundled('banknifty_yahoo_2018_2026.csv');
 import { paperStudy } from '../public/js/backtest.js';
 const relClose = (got, want, rel = 1e-9) => close(got, want, Math.max(1e-10, Math.abs(want) * rel));
 
@@ -363,25 +265,6 @@ for (const [name, rows] of [['nifty', nifty5y], ['banknifty', bank]]) {
   });
 }
 
-test('calibration average reproduces the ledger numbers verified earlier', () => {
-  const got = compareSipVsVol(nifty5y, { months: 24, rebalance: 'monthly', calibration: 'average' });
-  close(got.vol.final, 896389.4034568302, 1e-6);
-  close(got.sip.final, 984875.8986952304, 1e-6);
-});
-
-test('the control plan holds one constant share equal to the average volatility-plan share', () => {
-  const got = compareSipVsVol(nifty5y, { months: 24, rebalance: 'monthly' });
-  close(got.control.share, got.vol.investments.averageShare, 1e-12);
-});
-
-for (const [months, startDate] of [[24, null], [0, '2019-01-02']]) {
-  test(`identity for the control plan holds (months ${months || 120}${startDate ? ', from ' + startDate : ''})`, () => {
-    const got = compareSipVsVol(nifty5y, { months: months || 120, rebalance: 'monthly', startDate });
-    const c = got.control.components;
-    assert.ok(Math.abs(c.indexGain + c.interest - c.costs - (got.control.final - 1000000)) < 1e-6, `control residual ${c.indexGain + c.interest - c.costs - (got.control.final - 1000000)}`);
-  });
-}
-
 test('the managed series has the original volatility by construction (paper normalisation)', () => {
   const s = paperStudy(nifty5y.filter((d) => d.date >= '2018-12-01'));
   relClose(s.paper.sdManaged, s.paper.sdOriginal, 1e-9);
@@ -402,16 +285,14 @@ test('isoDateOrNull accepts real ISO dates only', () => {
   assert.equal(isoDateOrNull(20190101), null);
 });
 
-test('the API routes honour the start and from dates (through a real handler call)', async () => {
-  const csv = readFileSync(new URL('../public/data/nifty.csv', import.meta.url), 'utf8');
+test('the study route honours the from date (through a real handler call)', async () => {
+  const csv = readFileSync(new URL('../test/data/nifty_yahoo_2018_2026.csv', import.meta.url), 'utf8');
   const call = async (path, body) => {
     const handler = (await import(path)).default;
     let out;
     await handler({ method: 'POST', body }, { status: () => ({ json: (v) => (out = v) }) });
     return out;
   };
-  const cmp = await call('../api/compare.js', { csv, start: '2019-01-02' });
-  assert.ok(cmp.period.from >= '2019-01-01' && cmp.period.from <= '2019-01-05', cmp.period.from);
   const st = await call('../api/study.js', { csv, from: '2018-12-01' });
   assert.equal(st.study.n, 94);
 });

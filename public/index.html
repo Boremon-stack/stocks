@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Volatility Lab</title>
-  <meta name="description" content="Volatility Lab back-tests a volatility-based rule against a monthly SIP on real Nifty 50 and Bank Nifty daily data, 2019 to 2026.">
+  <meta name="description" content="₹10,000 a month into a plain plan and a volatility-managed plan on NSE's Nifty 50 closes, 2020 to 2025: a back-test of Moreira and Muir's idea with monthly contributions.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -43,9 +43,9 @@
 <section class="hero">
   <canvas id="shader" aria-hidden="true"></canvas>
   <div class="container">
-    <p class="eyebrow">Volatility-managed portfolios · NSE</p>
+    <p class="eyebrow">Volatility-managed investing · NSE</p>
     <h1>Hold less when the market is shaking. Measure whether it helps.</h1>
-    <p class="lede" style="margin-top:22px">Volatility Lab back-tests a simple rule on real Nifty 50 and Bank Nifty prices, 2019 to 2026: put in Rs 10,000 every month, or hold a smaller or larger share of a Rs 10 lakh pool in the index, never more than all of it, depending on how rough the last 20 trading days were. Based on Moreira and Muir, <em>Volatility-Managed Portfolios</em> (SSRN 2659431).</p>
+    <p class="lede" style="margin-top:22px">Every month, ₹10,000 goes into two plans on the first trading day of the month. One plan invests it at once. The other sets how much of its money sits in the index from last month's volatility, and keeps the rest in cash. We run both on NSE's official Nifty 50 closes, 2020 to 2025. It is a practical adaptation of Moreira and Muir, <em>Volatility-Managed Portfolios</em> (SSRN 2659431), not an exact replication.</p>
     <div class="hero-actions">
       <a class="btn" href="results.html">See the past results</a>
       <a class="btn ghost" href="#method">How it works</a>
@@ -56,35 +56,35 @@
 <section class="block" id="method">
   <div class="container">
     <p class="eyebrow">Method</p>
-    <h2>How the rule works</h2>
-    <p class="muted" style="max-width:40em">Adapted from the paper; the differences are listed on the results page. You can reproduce any number from the same data.</p>
+    <h2>How the volatility plan works</h2>
+    <p class="muted" style="max-width:40em">Both plans get the same money on the same days. The differences from the paper are listed on the results page.</p>
     <div class="grid-3 steps" style="margin-top:28px">
       <div class="step">
-        <h3>Measure the swings</h3>
-        <p>Average the squared daily moves of the last 20 trading days.</p>
-        <div class="formula">v = mean of r squared over 20 days</div>
+        <h3>Add the money</h3>
+        <p>On the first trading day of each month, ₹10,000 is added to both plans at that day's close.</p>
+        <div class="formula">contribution = ₹10,000 each month</div>
       </div>
       <div class="step">
-        <h3>Set the share of the pool</h3>
-        <p>The share is highest when swings are calm and drops when they are large, never above 100% of the pool.</p>
-        <div class="formula">share = c / v, between 0% and 100%</div>
+        <h3>Measure last month</h3>
+        <p>Add up the squared daily index moves of the previous calendar month. Only that month is used.</p>
+        <div class="formula">RV = sum of r squared, previous month</div>
       </div>
       <div class="step">
-        <h3>Compare honestly</h3>
-        <p>Both plans start with the same Rs 10,00,000. Compare final value, biggest fall from a high, and return per unit of risk, after trading costs.</p>
-        <div class="formula">value = pool x (1 + share x daily move) - costs</div>
+        <h3>Set the share in the index</h3>
+        <p>Compare last month's inverse variance with the average of earlier months. The share is capped at 100% of the money, and the rest stays in cash.</p>
+        <div class="formula">target = min( (1/RV) / average earlier (1/RV), 100% )</div>
       </div>
     </div>
-    <p class="note" style="margin-top:14px">c is a constant chosen so the managed plan is as volatile as the index.</p>
+    <p class="note" style="margin-top:14px">The first two months have no earlier estimate, so their target is 0. Cash earns nothing, and prices exclude dividends.</p>
 
     <div class="grid-2" style="margin-top:36px">
       <div class="card">
-        <h3>Monthly SIP</h3>
-        <p class="muted">Rs 10,000 goes into the index on the first trading day of each month. The rest of the pool stays in cash.</p>
+        <h3>Monthly DCA</h3>
+        <p class="muted">The ₹10,000 is invested in the index at once on the first trading day of each month. Nothing is held in cash.</p>
       </div>
       <div class="card">
-        <h3>Volatility-based</h3>
-        <p class="muted">The share of the pool held in the index is reset each month from the last 20 days of volatility. The rest stays in cash.</p>
+        <h3>Volatility-managed</h3>
+        <p class="muted">On the same days, the plan rebalances to the target share of its total money, shares plus cash. The rest stays in cash.</p>
       </div>
     </div>
   </div>
@@ -93,8 +93,8 @@
 <section class="block" id="live">
   <div class="container">
     <p class="eyebrow">Live, from real data</p>
-    <h2>Nifty 50 since January 2019</h2>
-    <p class="muted" style="max-width:40em">The chart is computed on the server from real daily closes. Move over it to read any day.</p>
+    <h2>Nifty 50, 2020 to 2025</h2>
+    <p class="muted" style="max-width:40em">The chart is computed on the server from NSE's daily closes with the default settings: ₹10,000 a month, up to 100% of the money in the index, no trading costs. Move over it to read any day.</p>
     <div class="card panel-chart" style="margin-top:20px">
       <div class="readout" id="readout"></div>
       <div id="live-chart" style="min-height:260px"></div>
@@ -105,14 +105,14 @@
 
 <section class="block">
   <div class="narrow" style="text-align:center">
-    <h2>Study the Nifty this way</h2>
-    <p class="muted">Switch between Nifty 50 and Bank Nifty, change the pool, the monthly amount or the 20-day window, and read the statistics from the paper.</p>
+    <h2>Read the full results</h2>
+    <p class="muted">Switch between Nifty 50 and Bank Nifty, change the monthly amount, the cap on the share, the trading cost or the dates, load your own CSV, and read every investment and the statistics from the paper.</p>
     <p style="margin-top:22px"><a class="btn" href="results.html">Open Past results</a></p>
   </div>
 </section>
 
 <footer class="site container">
-  Educational tool. Daily closes from Yahoo Finance (^NSEI, ^NSEBANK). Not investment advice. Price indices without dividends.
+  Educational tool. Nifty 50 and Bank Nifty closes: official NSE files supplied by the owner (2020 to 2025). Price indices without dividends. Not investment advice.
 </footer>
 
 <script type="module" src="js/landing.js"></script>

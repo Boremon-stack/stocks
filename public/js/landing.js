@@ -1,4 +1,4 @@
-import { liveChart, SIP_VOL_PANELS, sipVolTooltip, inr, lakh, pct } from './chart.js';
+import { liveChart, inr, lakh, pct } from './chart.js';
 
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -75,10 +75,40 @@ void main(){
 
 startShader(document.getElementById('shader'));
 
-
 const readout = document.getElementById('readout');
 const chartRoot = document.getElementById('live-chart');
+const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
+const KEYS = ['dcaEquity', 'vmEquity', 'dcaDd', 'vmDd'];
 let stored = null;
+
+const PANELS = [
+  {
+    id: 'value', title: 'Portfolio value', height: 250,
+    lines: [
+      { key: 'dcaEquity', color: 'var(--sip)', label: 'Monthly DCA' },
+      { key: 'vmEquity', color: 'var(--vol)', label: 'Volatility-managed', fill: true },
+    ],
+    axisFmt: (v) => lakh(v).replace(' ', ''),
+  },
+  {
+    id: 'dd', title: 'Fall from the previous high', height: 130,
+    lines: [
+      { key: 'dcaDd', color: 'var(--sip)', label: 'Monthly DCA', fill: true },
+      { key: 'vmDd', color: 'var(--vol)', label: 'Volatility-managed', fill: true },
+    ],
+    axisFmt: (v) => `${(v * 100).toFixed(0)}%`,
+    zeroMax: true,
+  },
+];
+
+const tooltip = (d) => ({
+  rows: [
+    { label: 'Nifty 50 close', value: isNum(d.price) ? Math.round(d.price).toLocaleString('en-IN') : '-' },
+    { label: 'Monthly DCA', value: `${lakh(d.dcaEquity)}  (${pct(d.dcaShare, 0)} in index)`, color: 'var(--sip)' },
+    { label: 'Volatility-managed', value: `${lakh(d.vmEquity)}  (${pct(d.vmShare, 0)} in index)`, color: 'var(--vol)' },
+    { label: 'Fall from high', value: `${pct(d.dcaDd)} vs ${pct(d.vmDd)}` },
+  ],
+});
 
 function kpi(label, value, hi = false) {
   const box = document.createElement('div');
@@ -93,32 +123,34 @@ function kpi(label, value, hi = false) {
 
 function drawLive() {
   if (!stored) return;
-  liveChart(chartRoot, stored.series, {
-    baseline: 1000000,
-    panels: [SIP_VOL_PANELS[0], SIP_VOL_PANELS[1]],
-    tooltip: (d) => sipVolTooltip(d, 'Nifty 50'),
-  });
+  const rows = stored.series.filter((d) => KEYS.every((k) => isNum(d?.[k])) && isNum(d.dcaShare) && isNum(d.vmShare) && isNum(d.price));
+  if (rows.length < 2) {
+    chartRoot.textContent = '';
+    return;
+  }
+  liveChart(chartRoot, rows, { panels: PANELS, tooltip });
 }
 
 async function load() {
   try {
-    const csv = await fetch('data/nifty.csv').then((r) => {
+    const csv = await fetch('data/nifty50.csv').then((r) => {
       if (!r.ok) throw new Error(`data ${r.status}`);
       return r.text();
     });
-    const res = await fetch('api/compare', {
+    const res = await fetch('api/dcavm', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ csv, start: '2019-01-02', months: 240, pool: 1000000, sip: 10000, window: 20, rebalance: 'monthly', cost: 0.001, cashRate: 0, minExposure: 0, maxExposure: 1 }),
+      body: JSON.stringify({ csv, monthly: 10000, maxExposure: 1, costBps: 0 }),
     });
-    if (!res.ok) throw new Error(`compare ${res.status}`);
+    if (!res.ok) throw new Error(`dcavm ${res.status}`);
     const data = await res.json();
-    const { vol, sip } = data;
+    const { dca, vm } = data;
+    if (!isNum(dca?.endingEquity) || !isNum(vm?.endingEquity) || !Array.isArray(data.series)) throw new Error('incomplete');
     readout.replaceChildren(
-      kpi('Volatility-based, final value', lakh(vol.final), true),
-      kpi('Monthly SIP, final value', lakh(sip.final)),
-      kpi('Volatility-based, biggest fall', pct(vol.maxDrawdown)),
-      kpi('Monthly SIP, biggest fall', pct(sip.maxDrawdown)),
+      kpi('Monthly DCA, ending equity', inr(dca.endingEquity)),
+      kpi('Volatility-managed, ending equity', inr(vm.endingEquity), true),
+      kpi('Monthly DCA, maximum drawdown', isNum(dca.maxDrawdown) ? pct(dca.maxDrawdown, 2) : '-'),
+      kpi('Volatility-managed, maximum drawdown', isNum(vm.maxDrawdown) ? pct(vm.maxDrawdown, 2) : '-', true),
     );
     stored = data;
     drawLive();
