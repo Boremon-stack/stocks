@@ -575,8 +575,6 @@ const ptsCell = (x) => cmpCell(x, (v) => signedPts(v, 2));
 const priceCell = (x) => cmpCell(x, (v) => v.toLocaleString('en-IN', { maximumFractionDigits: 2 }));
 const withWord = (x, word) => cmpCell(x, (v) => `${Math.round(v).toLocaleString('en-IN')} ${word}`);
 const joinCells = (parts) => { const ok = parts.filter((p) => p !== null); return ok.length ? ok.join(', ') : null; };
-const seriesLen = (o) => (Array.isArray(o.series) && o.series.length ? o.series.length : undefined);
-const weekendCount = (series) => series.filter((d) => { const w = new Date(`${d?.date}T00:00:00Z`).getUTCDay(); return w === 0 || w === 6; }).length;
 const ddPhrase = (d) => {
   const pts = Math.abs(d * 100);
   if (pts < 0.05) return 'left the maximum drawdown unchanged';
@@ -604,18 +602,6 @@ function renderCmpExtras(n, b, rho) {
   const vi = (o) => o.vm?.investments ?? {};
   const di = (o) => o.dca?.investments ?? {};
   const annVol = (o) => (isNum(o.stats?.returns?.sd) ? o.stats.returns.sd * Math.sqrt(252) : undefined);
-
-  const inputs = cmpCard('The two input files', [
-    two('Source', (o) => (seriesLen(o) ? esc('NSE official file supplied by the owner') : null)),
-    two('Rows', (o) => intCell(seriesLen(o))),
-    two('First date', (o) => (o.period?.from ? txt(o.period.from) : null)),
-    two('Last date', (o) => (o.period?.to ? txt(o.period.to) : null)),
-    two('Dates on a Saturday or Sunday', (o) => (seriesLen(o) ? intCell(weekendCount(o.series)) : null)),
-    two('Index change over the period', (o) => pctCell(o.period?.indexChange, 2)),
-    two('Index biggest fall', (o) => pctCell(ownMaxFall(o.series), 2)),
-    two('Index volatility per year', (o) => pctCell(annVol(o), 2)),
-    ['Correlation of daily index returns', cmpCell(rho, fx2), cmpCell(rho, fx2)],
-  ]);
 
   const dn = diff(n, 'maxDrawdown');
   const db = diff(b, 'maxDrawdown');
@@ -661,7 +647,7 @@ function renderCmpExtras(n, b, rho) {
     two('VM least and most money in the index', (o) => (isNum(vi(o).lowestInIndex) && isNum(vi(o).peakInIndex) ? `${inr(vi(o).lowestInIndex)} / ${inr(vi(o).peakInIndex)}` : null)),
   ]);
 
-  host.innerHTML = inputs + vmVsDca + timing + money;
+  host.innerHTML = vmVsDca + timing + money;
 }
 
 function renderCompare({ n, b, merged }) {
