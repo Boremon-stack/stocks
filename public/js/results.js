@@ -694,8 +694,8 @@ function renderCompare({ n, b, merged }) {
     + cr('Index own biggest fall', (o) => ownMaxFall(o.series), (x) => pct(x, 2))
     + cr('Index volatility over the period (per year)', annVol, (x) => pct(x, 2))
     + (isNum(rho) ? `<tr><td>Correlation of daily index returns</td><td colspan="2" style="text-align:center">${fx2(rho)}</td></tr>` : '')
-    + planRows('vm', 'Volatility-managed', 'Trades', (o) => o.vm?.investments?.trades)
-    + planRows('dca', 'Monthly DCA', 'Purchases', (o) => o.dca?.investments?.purchases);
+    + planRows('dca', 'Plain monthly DCA (no volatility rule: all of each ₹ goes into the index)', 'Purchases', (o) => o.dca?.investments?.purchases)
+    + planRows('vm', 'Volatility-managed (the volatility rule sets how much is in the index)', 'Trades', (o) => o.vm?.investments?.trades);
   const parts = [];
   if (isNum(vn.endingEquity) && isNum(vb.endingEquity) && isNum(dn.endingEquity) && isNum(db.endingEquity)) {
     parts.push(`From ${txt(n.period?.from)} to ${txt(n.period?.to)}, the volatility-managed plan ended at ${bold(inr(vn.endingEquity))} on Nifty 50 and ${bold(inr(vb.endingEquity))} on Bank Nifty. The monthly DCA ended at ${bold(inr(dn.endingEquity))} and ${bold(inr(db.endingEquity))}.`);
