@@ -1,0 +1,10 @@
+{
+  "name": "stocks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "test": "node --test test/backtest.test.mjs",
+    "reference": "python test/reference_check.py public/data/nifty50.csv"
+  }
+}

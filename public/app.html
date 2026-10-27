@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Lab · Volatility Lab</title>
+  <meta name="description" content="Upload NSE daily prices and run the volatility-managed backtest.">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .lab { display: grid; grid-template-columns: 340px 1fr; gap: 24px; padding: 36px 0 24px; align-items: start; }
+    .stack { display: grid; gap: 16px; }
+    .label { font: 0.8rem var(--sans); color: var(--muted); letter-spacing: 0.04em; margin-bottom: 8px; display: block; }
+    .seg { display: flex; flex-wrap: wrap; gap: 8px; }
+    .seg button {
+      font: 0.88rem var(--sans); color: var(--ink-2); background: var(--paper);
+      border: 1px solid var(--rule); border-radius: 999px; padding: 7px 13px; cursor: pointer;
+    }
+    .seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .drop {
+      display: block; margin-top: 14px; border: 1px dashed var(--accent-soft); border-radius: 12px;
+      padding: 18px; text-align: center; font: 0.9rem var(--sans); color: var(--muted); cursor: pointer;
+      background: var(--paper);
+    }
+    .drop.over { background: var(--paper-2); border-color: var(--accent); color: var(--ink); }
+    .drop input { display: none; }
+    .field { display: grid; gap: 6px; margin-top: 14px; }
+    .field input, .field select {
+      font: 0.95rem var(--sans); color: var(--ink); background: var(--paper);
+      border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; width: 100%;
+    }
+    .hint { font: 0.78rem var(--sans); color: var(--muted); }
+    .status { font: 0.88rem var(--sans); color: var(--muted); min-height: 1.4em; margin-top: 12px; }
+    .status.err { color: var(--down); }
+    .results { display: grid; gap: 16px; min-width: 0; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .kpi { background: var(--card); border: 1px solid var(--rule); border-radius: 12px; padding: 14px; }
+    .kpi span { font: 0.76rem var(--sans); color: var(--muted); display: block; }
+    .kpi strong { font: 1.35rem var(--serif); display: block; margin-top: 4px; }
+    .kpi.hi strong { color: var(--accent); }
+    .tablewrap { overflow-x: auto; }
+    .tools { display: flex; gap: 10px; flex-wrap: wrap; }
+    .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+    @media (max-width: 860px) {
+      .lab { grid-template-columns: 1fr; padding-top: 20px; }
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<header class="container">
+  <div class="topbar">
+    <a class="brand" href="index.html">Volatility <span>Lab</span></a>
+    <nav class="nav">
+      <a class="hide-sm" href="index.html">About</a>
+      <a class="btn ghost" href="app.html" aria-current="page">The lab</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="lab">
+    <aside class="stack">
+      <section class="card">
+        <span class="label">DATA</span>
+        <div class="seg" id="datasets" role="group" aria-label="Dataset">
+          <button type="button" data-file="nifty50.csv" aria-pressed="true">Nifty 50</button>
+          <button type="button" data-file="reliance.csv" aria-pressed="false">Reliance</button>
+          <button type="button" data-file="tcs.csv" aria-pressed="false">TCS</button>
+          <button type="button" data-file="hdfcbank.csv" aria-pressed="false">HDFC Bank</button>
+          <button type="button" data-file="infosys.csv" aria-pressed="false">Infosys</button>
+        </div>
+        <div class="field">
+          <label for="from">From (optional)</label>
+          <input id="from" type="date">
+        </div>
+        <div class="field">
+          <label for="to">To (optional)</label>
+          <input id="to" type="date">
+        </div>
+        <label class="drop" id="drop">
+          Drop a CSV here, or click to choose one
+          <div class="hint" style="margin-top:6px">Needs date and close columns, 60 or more rows, NSE daily data</div>
+          <input type="file" id="file" accept=".csv,text/csv">
+        </label>
+      </section>
+
+      <section class="card">
+        <span class="label">RULE</span>
+        <div class="field">
+          <label for="mode">Mode</label>
+          <select id="mode">
+            <option value="daily">Daily, 20-day window, capped at 100%</option>
+            <option value="monthly">Paper, monthly, uncapped leverage</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cost">Cost per unit of exposure change (%)</label>
+          <input id="cost" type="number" step="0.01" min="0" max="5" value="0.10">
+        </div>
+        <div class="field">
+          <label for="rf">Risk-free rate, annual (%)</label>
+          <input id="rf" type="number" step="0.1" min="0" max="50" value="6.5">
+        </div>
+        <div class="field" id="capWrap">
+          <label for="cap">Max exposure (blank = no cap)</label>
+          <input id="cap" type="number" step="0.05" min="0" max="10" value="1">
+        </div>
+        <p class="hint" style="margin-top:14px">The first 70% of the data sets the constant c. The last 30% is the out-of-sample test.</p>
+        <button class="btn" id="run" type="button" style="margin-top:14px;width:100%">Run backtest</button>
+        <div class="status" id="status" role="status"></div>
+      </section>
+    </aside>
+
+    <section class="results" id="results" aria-live="polite">
+      <div class="card empty" id="empty">Pick a dataset or upload a CSV, then run the backtest.</div>
+    </section>
+  </div>
+</main>
+
+<footer class="container site">
+  Computed by the backend route at <code>/api/backtest</code>. Historical and educational, not investment advice.
+</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

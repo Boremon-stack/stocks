@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Volatility Lab</title>
+  <meta name="description" content="Volatility-managed portfolios for NSE stocks. Scale exposure by recent variance, then test it out of sample on real data.">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .hero { position: relative; isolation: isolate; overflow: hidden; padding: 72px 0 56px; }
+    #shader { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.55; }
+    .hero::after {
+      content: ""; position: absolute; inset: 0; z-index: -1;
+      background: linear-gradient(180deg, rgba(246,242,233,0) 0%, rgba(246,242,233,0.7) 70%, var(--paper) 100%);
+    }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+    .steps { counter-reset: s; }
+    .step { border-top: 1px solid var(--rule); padding-top: 18px; }
+    .step::before { counter-increment: s; content: "0" counter(s); font: 0.8rem var(--sans); color: var(--accent); display: block; margin-bottom: 6px; }
+    .panel-chart { margin-top: 8px; }
+    .readout { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 14px; }
+    .readout .kpi strong { font-size: 1.35rem; }
+    section.block { padding: 64px 0; border-top: 1px solid var(--rule); }
+    .caveat { font: 0.9rem var(--sans); color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<header class="container">
+  <div class="topbar">
+    <a class="brand" href="index.html">Volatility <span>Lab</span></a>
+    <nav class="nav">
+      <a class="hide-sm" href="#method">Method</a>
+      <a class="hide-sm" href="#live">Live chart</a>
+      <a class="btn" href="app.html">Enter the lab</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <canvas id="shader" aria-hidden="true"></canvas>
+  <div class="container">
+    <p class="eyebrow">Volatility-managed portfolios · NSE</p>
+    <h1>Hold less when the market is shaking.<br>Measure whether that helps.</h1>
+    <p class="lede" style="margin-top:22px">Volatility Lab implements the rule from Moreira and Muir's paper <em>Volatility-Managed Portfolios</em> (SSRN 2659431). It scales your exposure by recent realized variance, then tests the result on data the rule never saw.</p>
+    <div class="hero-actions">
+      <a class="btn" href="app.html">Enter the lab</a>
+      <a class="btn ghost" href="#method">How it works</a>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="method">
+  <div class="container">
+    <p class="eyebrow">Method</p>
+    <h2>Three steps, each one checkable</h2>
+    <p class="muted" style="max-width:40em">The engine follows the paper's maths. Every number it reports can be reproduced from the CSV you upload.</p>
+    <div class="grid-3 steps" style="margin-top:28px">
+      <div class="step">
+        <h3>Measure the risk</h3>
+        <p>Turn each day's close into a return, then average the squared returns over the last 20 days.</p>
+        <div class="formula">v<sub>t</sub> = mean(r²) over 20 days</div>
+      </div>
+      <div class="step">
+        <h3>Scale the exposure</h3>
+        <p>Hold more when variance is low, less when it is high. The constant c is fixed on the first 70% of the data only.</p>
+        <div class="formula">w<sub>t+1</sub> = c / v<sub>t</sub></div>
+      </div>
+      <div class="step">
+        <h3>Test it honestly</h3>
+        <p>Judge the rule on the last 30%, after costs for every change in exposure. Compare CAGR, Sharpe and drawdown with buy and hold.</p>
+        <div class="formula">R<sub>t+1</sub> = w<sub>t+1</sub> r<sub>t+1</sub> − cost·|Δw|</div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:36px">
+      <div class="card">
+        <h3>Daily mode</h3>
+        <p class="muted">The 20-day rule from the workflow. Exposure is capped between 0% and 100%, so the strategy never borrows.</p>
+      </div>
+      <div class="card">
+        <h3>Paper mode</h3>
+        <p class="muted">The paper's monthly version. It uses last month's realized variance, and the exposure is not capped, so it can exceed 100%.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="live">
+  <div class="container">
+    <p class="eyebrow">Live, simulated</p>
+    <h2>A simulated index with volatility clustering</h2>
+    <p class="muted" style="max-width:40em">The chart runs the daily rule in your browser on a simulated series, so no market data is hosted here. The line is the simulated index; the bars are the exposure the rule would hold. The grey shaded area is the test period.</p>
+    <div class="card panel-chart" style="margin-top:20px">
+      <div class="readout" id="readout"></div>
+      <svg class="chart" id="live-chart" viewBox="0 0 900 340" role="img" aria-label="Nifty 50 price with the volatility-managed exposure"></svg>
+      <div class="legend">
+        <span><i style="background:var(--ink-2)"></i>Nifty 50 close (log scale)</span>
+        <span><i style="background:var(--accent-soft);height:8px;"></i>Exposure held</span>
+        <span><i style="background:var(--rule);height:10px;"></i>Test period</span>
+      </div>
+    </div>
+    <p class="caveat" style="margin-top:14px">Simulated prices, illustrative only, and not investment advice. Results depend on the data window and costs.</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="narrow" style="text-align:center">
+    <h2>Bring your own prices</h2>
+    <p class="muted">Upload any NSE stock or index as a CSV with <code>date</code> and <code>close</code> columns. The backend runs the same maths and returns the same numbers the reference check produces.</p>
+    <p style="margin-top:22px"><a class="btn" href="app.html">Open the lab</a></p>
+  </div>
+</section>
+
+<footer class="site container">
+  Educational tool. No market data is hosted; upload your own NSE closes. Not investment advice.
+</footer>
+
+<script type="module" src="js/landing.js"></script>
+</body>
+</html>

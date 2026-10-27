@@ -1,0 +1,20 @@
+✔ every NSE dataset parses with long history (23.9942ms)
+✔ parser rejects a file without date and close columns (0.479ms)
+✔ daily returns follow r = P_t / P_{t-1} - 1 (0.1469ms)
+✔ rolling variance is the mean of the last 20 squared returns (0.1707ms)
+✔ summarize: zero drawdown on a rising series, drawdown on a fall (0.322ms)
+✔ daily mode matches the independent pandas reference (Nifty 50) (4.8536ms)
+✔ monthly paper mode matches the independent pandas reference (Nifty 50) (1.7396ms)
+✔ daily exposure is capped and uses only information up to t-1 (2.7045ms)
+✔ split is about 70% and the test period is non-empty (1.5702ms)
+✔ costs never raise managed return (3.3398ms)
+✔ cpu kernel computes a*x + y (0.9204ms)
+✔ compute falls back to cpu outside a browser (0.173ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 134.693
